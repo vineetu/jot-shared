@@ -1,0 +1,31 @@
+{
+  "": {
+    "dependencies": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/JotTextPipeline.d",
+    "object": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/JotTextPipeline.o",
+    "swift-dependencies": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/primary.swiftdeps"
+  },
+  "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/FillerWordCleaner.swift": {
+    "object": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/FillerWordCleaner.swift.o",
+    "swiftmodule": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/FillerWordCleaner~partial.swiftmodule",
+    "swift-dependencies": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/FillerWordCleaner.swiftdeps",
+    "diagnostics": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/FillerWordCleaner.dia"
+  },
+  "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/NumberNormalizer.swift": {
+    "object": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/NumberNormalizer.swift.o",
+    "swiftmodule": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/NumberNormalizer~partial.swiftmodule",
+    "swift-dependencies": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/NumberNormalizer.swiftdeps",
+    "diagnostics": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/NumberNormalizer.dia"
+  },
+  "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/ParagraphSegmenter.swift": {
+    "object": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/ParagraphSegmenter.swift.o",
+    "swiftmodule": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/ParagraphSegmenter~partial.swiftmodule",
+    "swift-dependencies": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/ParagraphSegmenter.swiftdeps",
+    "diagnostics": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/ParagraphSegmenter.dia"
+  },
+  "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/TokenTiming.swift": {
+    "object": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/TokenTiming.swift.o",
+    "swiftmodule": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/TokenTiming~partial.swiftmodule",
+    "swift-dependencies": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/TokenTiming.swiftdeps",
+    "diagnostics": "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/TokenTiming.dia"
+  }
+}

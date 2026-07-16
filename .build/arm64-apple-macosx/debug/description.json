@@ -20,6 +20,34 @@
           "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline_JotTextPipelineTests.bundle/Fixtures"
         }
       ]
+    },
+    "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline_JotVocabCore.bundle/Resources" : {
+      "inputs" : [
+        {
+          "kind" : "directory",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/Resources"
+        }
+      ],
+      "outputs" : [
+        {
+          "kind" : "directory",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline_JotVocabCore.bundle/Resources"
+        }
+      ]
+    },
+    "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline_JotVocabCoreTests.bundle/Fixtures" : {
+      "inputs" : [
+        {
+          "kind" : "directory",
+          "name" : "/Users/vsriram/code/jot-shared/Tests/JotVocabCoreTests/Fixtures"
+        }
+      ],
+      "outputs" : [
+        {
+          "kind" : "directory",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline_JotVocabCoreTests.bundle/Fixtures"
+        }
+      ]
     }
   },
   "explicitTargetDependencyImportCheckingMode" : {
@@ -167,6 +195,10 @@
         {
           "kind" : "file",
           "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules/JotVocabCoreTests.swiftmodule"
         },
         {
           "kind" : "file",
@@ -357,6 +389,289 @@
       ],
       "tempsPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build",
       "wholeModuleOptimization" : false
+    },
+    "C.JotVocabCore-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/sources",
+      "importPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/AskPolicy.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/CorrectionKey.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/CorrectionProvenance.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/CorrectionStore.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/Seams.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/VocabTerm.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/VocabularyFile.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/VocabularyGate.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/DerivedSources/resource_bundle_accessor.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "virtual",
+          "name" : "<JotVocabCore-arm64-apple-macosx-debug.module-resources>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "JotVocabCore",
+      "moduleOutputPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules/JotVocabCore.swiftmodule",
+      "objects" : [
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/AskPolicy.swift.o",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/CorrectionKey.swift.o",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/CorrectionProvenance.swift.o",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/CorrectionStore.swift.o",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/Seams.swift.o",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/VocabTerm.swift.o",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/VocabularyFile.swift.o",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/VocabularyGate.swift.o",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/resource_bundle_accessor.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j12",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE",
+        "-module-cache-path",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/include/JotVocabCore-Swift.h",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "jot_shared"
+      ],
+      "outputFileMapPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/AskPolicy.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/CorrectionKey.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/CorrectionProvenance.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/CorrectionStore.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/Seams.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/VocabTerm.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/VocabularyFile.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/VocabularyGate.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/resource_bundle_accessor.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules/JotVocabCore.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/AskPolicy.swift",
+        "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/CorrectionKey.swift",
+        "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/CorrectionProvenance.swift",
+        "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/CorrectionStore.swift",
+        "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/Seams.swift",
+        "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/VocabTerm.swift",
+        "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/VocabularyFile.swift",
+        "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/VocabularyGate.swift",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/DerivedSources/resource_bundle_accessor.swift"
+      ],
+      "tempsPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.JotVocabCoreTests-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCoreTests.build/sources",
+      "importPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Tests/JotVocabCoreTests/GoldenFixtureTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCoreTests.build/DerivedSources/resource_bundle_accessor.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "virtual",
+          "name" : "<JotVocabCoreTests-arm64-apple-macosx-debug.module-resources>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules/JotVocabCore.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCoreTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "JotVocabCoreTests",
+      "moduleOutputPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules/JotVocabCoreTests.swiftmodule",
+      "objects" : [
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCoreTests.build/GoldenFixtureTests.swift.o",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCoreTests.build/resource_bundle_accessor.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j12",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE",
+        "-module-cache-path",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "jot_shared"
+      ],
+      "outputFileMapPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCoreTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCoreTests.build/GoldenFixtureTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCoreTests.build/resource_bundle_accessor.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules/JotVocabCoreTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/vsriram/code/jot-shared/Tests/JotVocabCoreTests/GoldenFixtureTests.swift",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCoreTests.build/DerivedSources/resource_bundle_accessor.swift"
+      ],
+      "tempsPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCoreTests.build",
+      "wholeModuleOptimization" : false
     }
   },
   "swiftFrontendCommands" : {
@@ -545,6 +860,134 @@
       "jot_shared",
       "-driver-use-frontend-path",
       "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "JotVocabCore" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "JotVocabCore",
+      "-package-name",
+      "jot_shared",
+      "-c",
+      "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/AskPolicy.swift",
+      "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/CorrectionKey.swift",
+      "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/CorrectionProvenance.swift",
+      "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/CorrectionStore.swift",
+      "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/Seams.swift",
+      "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/VocabTerm.swift",
+      "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/VocabularyFile.swift",
+      "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/VocabularyGate.swift",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/DerivedSources/resource_bundle_accessor.swift",
+      "-I",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j12",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE",
+      "-module-cache-path",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/include/JotVocabCore-Swift.h",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "jot_shared",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "JotVocabCoreTests" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "JotVocabCoreTests",
+      "-package-name",
+      "jot_shared",
+      "-c",
+      "/Users/vsriram/code/jot-shared/Tests/JotVocabCoreTests/GoldenFixtureTests.swift",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCoreTests.build/DerivedSources/resource_bundle_accessor.swift",
+      "-I",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-Xfrontend",
+      "-enable-cross-import-overlays",
+      "-j12",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE",
+      "-module-cache-path",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "jot_shared",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
     ]
   },
   "targetDependencyMap" : {
@@ -553,10 +996,18 @@
     ],
     "JotTextPipelinePackageTests" : [
       "JotTextPipelineTests",
-      "JotTextPipeline"
+      "JotTextPipeline",
+      "JotVocabCoreTests",
+      "JotVocabCore"
     ],
     "JotTextPipelineTests" : [
       "JotTextPipeline"
+    ],
+    "JotVocabCore" : [
+
+    ],
+    "JotVocabCoreTests" : [
+      "JotVocabCore"
     ]
   },
   "testDiscoveryCommands" : {
@@ -655,6 +1106,50 @@
         {
           "kind" : "file",
           "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build/resource_bundle_accessor.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/AskPolicy.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/CorrectionKey.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/CorrectionProvenance.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/CorrectionStore.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/Seams.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/VocabTerm.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/VocabularyFile.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/VocabularyGate.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/resource_bundle_accessor.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCoreTests.build/GoldenFixtureTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCoreTests.build/resource_bundle_accessor.swift.o"
         }
       ],
       "outputFilePath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.product/Objects.LinkFileList"
@@ -676,6 +1171,70 @@
         }
       ],
       "outputFilePath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build/sources"
+    },
+    "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/AskPolicy.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/CorrectionKey.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/CorrectionProvenance.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/CorrectionStore.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/Seams.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/VocabTerm.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/VocabularyFile.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotVocabCore/VocabularyGate.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/DerivedSources/resource_bundle_accessor.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCore.build/sources"
+    },
+    "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCoreTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Tests/JotVocabCoreTests/GoldenFixtureTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCoreTests.build/DerivedSources/resource_bundle_accessor.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotVocabCoreTests.build/sources"
     },
     "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt" : {
       "alwaysOutOfDate" : true,

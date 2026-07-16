@@ -1,0 +1,695 @@
+{
+  "builtTestProducts" : [
+    {
+      "binaryPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.xctest/Contents/MacOS/JotTextPipelinePackageTests",
+      "packagePath" : "/Users/vsriram/code/jot-shared",
+      "productName" : "JotTextPipelinePackageTests"
+    }
+  ],
+  "copyCommands" : {
+    "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline_JotTextPipelineTests.bundle/Fixtures" : {
+      "inputs" : [
+        {
+          "kind" : "directory",
+          "name" : "/Users/vsriram/code/jot-shared/Tests/JotTextPipelineTests/Fixtures"
+        }
+      ],
+      "outputs" : [
+        {
+          "kind" : "directory",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline_JotTextPipelineTests.bundle/Fixtures"
+        }
+      ]
+    }
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.JotTextPipeline-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/sources",
+      "importPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/FillerWordCleaner.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/NumberNormalizer.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/ParagraphSegmenter.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/TokenTiming.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "JotTextPipeline",
+      "moduleOutputPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules/JotTextPipeline.swiftmodule",
+      "objects" : [
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/FillerWordCleaner.swift.o",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/NumberNormalizer.swift.o",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/ParagraphSegmenter.swift.o",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/TokenTiming.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j12",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/include/JotTextPipeline-Swift.h",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "jot_shared"
+      ],
+      "outputFileMapPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/FillerWordCleaner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/NumberNormalizer.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/ParagraphSegmenter.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/TokenTiming.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules/JotTextPipeline.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/FillerWordCleaner.swift",
+        "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/NumberNormalizer.swift",
+        "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/ParagraphSegmenter.swift",
+        "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/TokenTiming.swift"
+      ],
+      "tempsPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.JotTextPipelinePackageTests-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.build/sources",
+      "importPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.derived/runner.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules/JotTextPipelineTests.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "JotTextPipelinePackageTests",
+      "moduleOutputPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules/JotTextPipelinePackageTests.swiftmodule",
+      "objects" : [
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.build/runner.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j12",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.build/include/JotTextPipelinePackageTests-Swift.h",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "jot_shared"
+      ],
+      "outputFileMapPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.build/runner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules/JotTextPipelinePackageTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.derived/runner.swift"
+      ],
+      "tempsPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.JotTextPipelineTests-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build/sources",
+      "importPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Tests/JotTextPipelineTests/GoldenFixtureTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build/DerivedSources/resource_bundle_accessor.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "virtual",
+          "name" : "<JotTextPipelineTests-arm64-apple-macosx-debug.module-resources>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules/JotTextPipeline.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "JotTextPipelineTests",
+      "moduleOutputPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules/JotTextPipelineTests.swiftmodule",
+      "objects" : [
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build/GoldenFixtureTests.swift.o",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build/resource_bundle_accessor.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j12",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE",
+        "-module-cache-path",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "jot_shared"
+      ],
+      "outputFileMapPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build/GoldenFixtureTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build/resource_bundle_accessor.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules/JotTextPipelineTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/vsriram/code/jot-shared/Tests/JotTextPipelineTests/GoldenFixtureTests.swift",
+        "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build/DerivedSources/resource_bundle_accessor.swift"
+      ],
+      "tempsPath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build",
+      "wholeModuleOptimization" : false
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "JotTextPipeline" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "JotTextPipeline",
+      "-package-name",
+      "jot_shared",
+      "-c",
+      "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/FillerWordCleaner.swift",
+      "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/NumberNormalizer.swift",
+      "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/ParagraphSegmenter.swift",
+      "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/TokenTiming.swift",
+      "-I",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j12",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/include/JotTextPipeline-Swift.h",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "jot_shared",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "JotTextPipelinePackageTests" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "JotTextPipelinePackageTests",
+      "-package-name",
+      "jot_shared",
+      "-c",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.derived/runner.swift",
+      "-I",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-Xfrontend",
+      "-enable-cross-import-overlays",
+      "-j12",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.build/include/JotTextPipelinePackageTests-Swift.h",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "jot_shared",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "JotTextPipelineTests" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "JotTextPipelineTests",
+      "-package-name",
+      "jot_shared",
+      "-c",
+      "/Users/vsriram/code/jot-shared/Tests/JotTextPipelineTests/GoldenFixtureTests.swift",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build/DerivedSources/resource_bundle_accessor.swift",
+      "-I",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-Xfrontend",
+      "-enable-cross-import-overlays",
+      "-j12",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE",
+      "-module-cache-path",
+      "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "jot_shared",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "JotTextPipeline" : [
+
+    ],
+    "JotTextPipelinePackageTests" : [
+      "JotTextPipelineTests",
+      "JotTextPipeline"
+    ],
+    "JotTextPipelineTests" : [
+      "JotTextPipeline"
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+    "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.derived/runner.swift" : {
+      "inputs" : [
+
+      ],
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.derived/runner.swift"
+        }
+      ]
+    }
+  },
+  "traitConfiguration" : {
+    "default" : {
+
+    }
+  },
+  "writeCommands" : {
+    "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/FillerWordCleaner.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/NumberNormalizer.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/ParagraphSegmenter.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Sources/JotTextPipeline/TokenTiming.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/sources"
+    },
+    "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.derived/runner.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.build/sources"
+    },
+    "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/FillerWordCleaner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/NumberNormalizer.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/ParagraphSegmenter.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipeline.build/TokenTiming.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.build/runner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build/GoldenFixtureTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build/resource_bundle_accessor.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelinePackageTests.product/Objects.LinkFileList"
+    },
+    "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/Tests/JotTextPipelineTests/GoldenFixtureTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build/DerivedSources/resource_bundle_accessor.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/JotTextPipelineTests.build/sources"
+    },
+    "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+    }
+  }
+}

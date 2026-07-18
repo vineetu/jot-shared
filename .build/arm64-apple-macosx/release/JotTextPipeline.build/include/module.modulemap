@@ -1,3 +1,0 @@
-module JotTextPipeline {
-    header "/Users/vsriram/code/jot-shared/.build/arm64-apple-macosx/release/JotTextPipeline.build/include/JotTextPipeline-Swift.h"
-}

@@ -11,5 +11,14 @@
   {"name": "um_between_words_leaves_single_space", "input": "hello um world", "expected": "Hello world "},
   {"name": "mid_sentence_filler_preserves_spaces", "input": "this is uh really fast", "expected": "This is really fast "},
   {"name": "adjacent_fillers_between_words_collapse_to_single_space", "input": "yeah uh um okay", "expected": "Yeah okay "},
-  {"name": "paragraph_leading_filler_no_leading_space", "input": "Hello.\n\num world.", "expected": "Hello.\n\nWorld. "}
+  {"name": "paragraph_leading_filler_no_leading_space", "input": "Hello.\n\num world.", "expected": "Hello.\n\nWorld. "},
+  {"name": "cased_leading_filler_recapitalizes_exposed_word", "input": "Um, hello there.", "expected": "Hello there. "},
+  {"name": "cased_abbreviation_period_not_recapitalized", "input": "I met Dr. Smith", "expected": "I met Dr. Smith "},
+  {"name": "cased_eg_abbreviation_following_word_left_lowercase", "input": "See e.g. the example.", "expected": "See e.g. the example. "},
+  {"name": "cased_mid_sentence_filler_stripped_without_recap", "input": "It runs uh fast.", "expected": "It runs fast. "},
+  {"name": "cjk_no_op_caseless_first_char", "input": "こんにちは。", "expected": "こんにちは。 "},
+  {"name": "v2_multi_sentence_lowercase_regains_caps", "input": "hello world. this is new.", "expected": "Hello world. This is new. "},
+  {"name": "cased_no_filler_passthrough_byte_identical", "input": "This is a test. It works.", "expected": "This is a test. It works. "},
+  {"name": "decimal_not_a_sentence_boundary", "input": "3.14 is pi", "expected": "3.14 is pi "},
+  {"name": "dotted_acronym_mid_sentence_but_real_boundary_still_caps", "input": "the u.s. economy grew. it rebounded.", "expected": "The u.s. economy grew. It rebounded. "}
 ]

@@ -34,7 +34,12 @@ let package = Package(
         .target(
             name: "JotVocabCore",
             resources: [
-                .copy("Resources"),
+                // .process (NOT .copy): flattens the .txt files to the resource-bundle
+                // ROOT. .copy preserved a nested Resources/ dir, which iOS codesign
+                // rejects ("bundle format unrecognized") when the bundle is embedded
+                // in an app/appex — macOS `swift test` never codesigns, so only an
+                // iOS embed catches it.
+                .process("Resources"),
             ]
         ),
         .testTarget(

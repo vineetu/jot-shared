@@ -121,7 +121,7 @@ public final class BundledCommonWordsProvider: CommonWordsProvider, @unchecked S
     private static func load(_ resource: String) -> Set<String>? {
         guard
             let url = Bundle.module.url(
-                forResource: resource, withExtension: "txt", subdirectory: "Resources"),
+                forResource: resource, withExtension: "txt"),
             let text = try? String(contentsOf: url, encoding: .utf8)
         else {
             return nil

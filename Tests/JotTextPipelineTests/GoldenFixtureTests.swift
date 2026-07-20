@@ -28,6 +28,16 @@ final class GoldenFixtureTests: XCTestCase {
         let expected: String
     }
 
+    /// StringCase plus an optional language code. An absent `language` key
+    /// deliberately decodes to `nil` so the fixture also pins the nil ⇒
+    /// English default of `FillerWordCleaner.clean(_:language:)`.
+    private struct LanguageStringCase: Decodable {
+        let name: String
+        let language: String?
+        let input: String
+        let expected: String
+    }
+
     private struct WordFixture: Decodable {
         let text: String
         let start: TimeInterval
@@ -97,6 +107,46 @@ final class GoldenFixtureTests: XCTestCase {
             XCTAssertEqual(
                 FillerWordCleaner.clean(c.input), c.expected,
                 "filler_word_cleaner[\(c.name)] input=\(c.input.debugDescription)"
+            )
+        }
+    }
+
+    /// Multilingual hesitation stripping (es/de/fr/it/pt), the umlaut
+    /// full-match word-boundary guard ("ähnlich" untouched), the strict
+    /// identity no-op for unknown language codes, and region-subtag
+    /// normalization ("de-DE" ⇒ "de").
+    func testFillerWordCleanerMultilingualGolden() throws {
+        let cases = try loadFixture(
+            "filler_word_cleaner_multilingual", as: [LanguageStringCase].self
+        )
+        XCTAssertFalse(cases.isEmpty)
+        for c in cases {
+            XCTAssertEqual(
+                FillerWordCleaner.clean(c.input, language: c.language), c.expected,
+                "filler_word_cleaner_multilingual[\(c.name)] "
+                    + "lang=\(c.language ?? "nil") input=\(c.input.debugDescription)"
+            )
+        }
+    }
+
+    // MARK: - ModelArtifactScrubber
+
+    /// `<unk>` tokenizer-artifact scrub: digit-adjacent `<unk>` ⇒ "%",
+    /// everything else dropped with boundary cleanup. Ported from the
+    /// validated macOS battery (PostProcessing.scrubModelArtifacts). Each
+    /// case also pins idempotence: scrub(scrub(x)) == scrub(x).
+    func testModelArtifactScrubberGolden() throws {
+        let cases = try loadFixture("model_artifact_scrubber", as: [StringCase].self)
+        XCTAssertFalse(cases.isEmpty)
+        for c in cases {
+            let out = ModelArtifactScrubber.scrub(c.input)
+            XCTAssertEqual(
+                out, c.expected,
+                "model_artifact_scrubber[\(c.name)] input=\(c.input.debugDescription)"
+            )
+            XCTAssertEqual(
+                ModelArtifactScrubber.scrub(out), out,
+                "model_artifact_scrubber[\(c.name)] not idempotent"
             )
         }
     }

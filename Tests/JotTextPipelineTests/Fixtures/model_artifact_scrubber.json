@@ -1,0 +1,13 @@
+[
+  {"name": "digit_glued_unk_becomes_percent", "input": "25<unk>", "expected": "25%"},
+  {"name": "digit_space_unk_becomes_percent", "input": "25 <unk>", "expected": "25%"},
+  {"name": "interior_unk_dropped_single_space", "input": "hola <unk> mundo", "expected": "hola mundo"},
+  {"name": "no_artifact_no_op", "input": "sin artefactos aqui", "expected": "sin artefactos aqui"},
+  {"name": "mixed_percent_and_noise", "input": "el 25<unk> de descuento y algo <unk> raro", "expected": "el 25% de descuento y algo raro"},
+  {"name": "uppercase_unk_untouched_case_exact_only", "input": "25<UNK>", "expected": "25<UNK>"},
+  {"name": "paragraph_break_preserved_across_unk", "input": "sube un 25\n\n<unk>Otro", "expected": "sube un 25\n\nOtro"},
+  {"name": "arabic_indic_digits_no_ascii_percent", "input": "٢٥<unk>", "expected": "٢٥"},
+  {"name": "glued_unk_gets_a_space", "input": "hola<unk>mundo", "expected": "hola mundo"},
+  {"name": "adjacent_unks_collapse_to_single_space", "input": "a <unk> <unk> b", "expected": "a b"},
+  {"name": "line_edge_unk_no_trailing_space_before_newline", "input": "fin de linea <unk>\nsiguiente", "expected": "fin de linea\nsiguiente"}
+]

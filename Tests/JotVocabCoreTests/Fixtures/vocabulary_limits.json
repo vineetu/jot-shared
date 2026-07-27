@@ -1,0 +1,273 @@
+{
+  "_about": [
+    "WHICH languages the model-free vocabulary corrector may run in, and HOW LOOSE it may be in",
+    "each. Transcribed from the shipping Windows table, src/Jot/Vocabulary/VocabularyLimits.cs in",
+    "jot-windows @ ae2ce1c, which is the source of truth for these numbers. There is no Swift",
+    "counterpart yet and NO TEST IN THIS PACKAGE READS THIS FILE — it is carried as data so a Swift",
+    "implementation has the measured values to build against instead of re-deriving them, and so",
+    "that a change to the shipped table can be diffed against something.",
+    "Prose spec: https://sites.simple-host.app/jot-transcribe/jot-vocabulary-spec/"
+  ],
+
+  "measurement": {
+    "experiment": "E6",
+    "date": "2026-07-26",
+    "corpus": "9500 FLEURS clips of real speech through the shipping Nemotron engine and the real gate",
+    "budgetFalseAppliesPer1000": 1.0,
+    "budgetRule": [
+      "Budget is 1.0 false applies per 1000 reference words, on a realistic 25-term list AND on a",
+      "mechanically adversarial one. A language at or above 0.9 (one measured event from the line)",
+      "gets the loosest distance that brings BOTH arms to <= 0.5. One that cannot reach that without",
+      "losing half its recall is not served at all. Nothing is tuned for a language the measurement",
+      "cleared."
+    ],
+    "arms": {
+      "realistic": "a realistic 25-term vocabulary list",
+      "adversarial": "a mechanically adversarial 25-term list"
+    },
+    "units": "false applies per 1000 reference words"
+  },
+
+  "constants": {
+    "noLimit": 1.0,
+    "noLimitMeaning": "No cap beyond the corrector's own edit budget: one edit per five term characters, which tops out at a normalized distance of 0.33.",
+    "unmeasured": 0.15,
+    "unmeasuredMeaning": "What an unmeasured language would get if one ever reached the corrector. Unreachable today, and deliberately the TIGHTEST shipped value rather than the loosest."
+  },
+
+  "languages": [
+    {
+      "language": "en",
+      "ships": true,
+      "cap": "no cap",
+      "maxDistance": 1.0,
+      "falseAppliesPer1000": { "realistic": 0.27, "adversarial": 0.22 },
+      "commonWordsList": "common-words",
+      "typeCoveragePercent": 88.8,
+      "note": "Measured by E5, not E6: English runs the acoustic spotter, and this is the corrector's setting for the window before the 132 MB checkpoint arrives. Do not tighten without re-running E5."
+    },
+    {
+      "language": "cs",
+      "ships": true,
+      "cap": "no cap",
+      "maxDistance": 1.0,
+      "falseAppliesPer1000": { "realistic": 0.55, "adversarial": 0.88 },
+      "commonWordsList": "common-words-cs",
+      "typeCoveragePercent": 72.0,
+      "note": "The closest pass inside budget."
+    },
+    {
+      "language": "da",
+      "ships": true,
+      "cap": "no cap",
+      "maxDistance": 1.0,
+      "falseAppliesPer1000": { "realistic": 0.10, "adversarial": 0.79 },
+      "commonWordsList": "common-words-da"
+    },
+    {
+      "language": "es",
+      "ships": true,
+      "cap": "no cap",
+      "maxDistance": 1.0,
+      "falseAppliesPer1000": { "realistic": 0.00, "adversarial": 0.32 },
+      "commonWordsList": "common-words-es"
+    },
+    {
+      "language": "fi",
+      "ships": true,
+      "cap": "no cap",
+      "maxDistance": 1.0,
+      "falseAppliesPer1000": { "realistic": 0.00, "adversarial": 0.41 },
+      "commonWordsList": "common-words-fi",
+      "typeCoveragePercent": 60.1,
+      "note": "Predicted to be the worst case on type coverage; the measurement says otherwise."
+    },
+    {
+      "language": "fr",
+      "ships": true,
+      "cap": "no cap",
+      "maxDistance": 1.0,
+      "falseAppliesPer1000": { "realistic": 0.00, "adversarial": 0.08 },
+      "commonWordsList": "common-words-fr"
+    },
+    {
+      "language": "hu",
+      "ships": true,
+      "cap": "no cap",
+      "maxDistance": 1.0,
+      "falseAppliesPer1000": { "realistic": 0.34, "adversarial": 0.57 },
+      "commonWordsList": "common-words-hu"
+    },
+    {
+      "language": "it",
+      "ships": true,
+      "cap": "no cap",
+      "maxDistance": 1.0,
+      "falseAppliesPer1000": { "realistic": 0.09, "adversarial": 0.09 },
+      "commonWordsList": "common-words-it"
+    },
+    {
+      "language": "nl",
+      "ships": true,
+      "cap": "no cap",
+      "maxDistance": 1.0,
+      "falseAppliesPer1000": { "realistic": 0.00, "adversarial": 0.09 },
+      "commonWordsList": "common-words-nl"
+    },
+    {
+      "language": "pt",
+      "ships": true,
+      "cap": "no cap",
+      "maxDistance": 1.0,
+      "falseAppliesPer1000": { "realistic": 0.00, "adversarial": 0.09 },
+      "commonWordsList": "common-words-pt"
+    },
+    {
+      "language": "ro",
+      "ships": true,
+      "cap": "no cap",
+      "maxDistance": 1.0,
+      "falseAppliesPer1000": { "realistic": 0.09, "adversarial": 0.81 },
+      "commonWordsList": "common-words-ro"
+    },
+    {
+      "language": "sk",
+      "ships": true,
+      "cap": "no cap",
+      "maxDistance": 1.0,
+      "falseAppliesPer1000": { "realistic": 0.32, "adversarial": 0.11 },
+      "commonWordsList": "common-words-sk"
+    },
+    {
+      "language": "sv",
+      "ships": true,
+      "cap": "no cap",
+      "maxDistance": 1.0,
+      "falseAppliesPer1000": { "realistic": 0.29, "adversarial": 0.69 },
+      "commonWordsList": "common-words-sv"
+    },
+
+    {
+      "language": "bg",
+      "ships": true,
+      "cap": "tightened",
+      "maxDistance": 0.25,
+      "overBudgetUncapped": { "arm": "adversarial", "falseAppliesPer1000": 1.27 },
+      "falseAppliesPer1000": { "realistic": 0.10, "adversarial": 0.20 },
+      "recallPercent": { "uncapped": 50.7, "capped": 43.8 },
+      "commonWordsList": "common-words-bg"
+    },
+    {
+      "language": "de",
+      "ships": true,
+      "cap": "tightened",
+      "maxDistance": 0.15,
+      "overBudgetUncapped": { "arm": "adversarial", "falseAppliesPer1000": 0.96 },
+      "falseAppliesPer1000": { "realistic": 0.00, "adversarial": 0.19 },
+      "recallPercent": { "uncapped": 54.3, "capped": 31.4 },
+      "commonWordsList": "common-words-de",
+      "note": "Long compounds, so 0.15 still allows an edit on most German words."
+    },
+    {
+      "language": "el",
+      "ships": true,
+      "cap": "tightened",
+      "maxDistance": 0.20,
+      "overBudgetUncapped": { "arm": "realistic", "falseAppliesPer1000": 1.42 },
+      "falseAppliesPer1000": { "realistic": 0.27, "adversarial": 0.09 },
+      "recallPercent": { "uncapped": 35.7, "capped": 18.8 },
+      "commonWordsList": "common-words-el",
+      "typeCoveragePercent": 56.9,
+      "note": "The frequency list covers 56.9 % of Greek running-text types, against 88.8 % of English — the brake is simply weaker here."
+    },
+    {
+      "language": "pl",
+      "ships": true,
+      "cap": "tightened",
+      "maxDistance": 0.20,
+      "overBudgetUncapped": { "arm": "adversarial", "falseAppliesPer1000": 0.90 },
+      "falseAppliesPer1000": { "realistic": 0.11, "adversarial": 0.45 },
+      "recallPercent": { "uncapped": 51.8, "capped": 33.9 },
+      "commonWordsList": "common-words-pl"
+    },
+    {
+      "language": "ru",
+      "ships": true,
+      "cap": "tightened",
+      "maxDistance": 0.20,
+      "overBudgetUncapped": { "arm": "adversarial", "falseAppliesPer1000": 1.73 },
+      "falseAppliesPer1000": { "realistic": 0.32, "adversarial": 0.43 },
+      "recallPercent": { "uncapped": 60.3, "capped": 56.9 },
+      "commonWordsList": "common-words-ru"
+    },
+    {
+      "language": "uk",
+      "ships": true,
+      "cap": "tightened",
+      "maxDistance": 0.20,
+      "overBudgetUncapped": { "arm": "adversarial", "falseAppliesPer1000": 0.99 },
+      "falseAppliesPer1000": { "realistic": 0.33, "adversarial": 0.22 },
+      "recallPercent": { "uncapped": 59.0, "capped": 47.5 },
+      "commonWordsList": "common-words-uk"
+    }
+  ],
+
+  "excluded": [
+    {
+      "language": "sl",
+      "name": "Slovenian",
+      "ships": false,
+      "reason": "cut-by-measurement",
+      "commonWordsList": "common-words-sl",
+      "overBudgetUncapped": { "arm": "adversarial", "falseAppliesPer1000": 1.72 },
+      "detail": [
+        "The only setting that gets it under 0.5 is maxDistance 0.20, and at 0.20 it recovers 16 % of",
+        "missed terms — 43 % of what it recovers uncapped. A feature that corrupts at the budget line",
+        "and recovers one term in six is not a feature. The engine is also at 58.6 % WER in Slovenian,",
+        "so the premise (a mostly-right transcript with a few mis-spelled terms) does not hold.",
+        "This is an EXCLUSION WITH A REASON, not an omission: a frequency list ships, the language is",
+        "a supported engine locale, and it is still refused. Re-adding it needs a re-measurement, not",
+        "a one-line table edit."
+      ]
+    },
+    {
+      "language": "sr",
+      "name": "Serbian",
+      "ships": false,
+      "reason": "no-engine-locale",
+      "commonWordsList": "common-words-sr",
+      "detail": [
+        "A 24 000-entry frequency list ships, so the brake WOULD work — but there is no Nemotron",
+        "locale for Serbian, so no setting can ever select it. Measured on Croatian audio as a probe;",
+        "enabling a language on a probe is not something to do."
+      ]
+    },
+    {
+      "language": "hr",
+      "name": "Croatian",
+      "ships": false,
+      "reason": "no-frequency-list",
+      "commonWordsList": null,
+      "detail": [
+        "No frequency list ships, so the common-word brake would be ABSENT, not merely weak — the",
+        "provider returns an empty set and the guard is inert. 'No brake ⇒ no run' is the rule that",
+        "keeps this off, and it is the same rule that keeps ar/ja/tr/mt off."
+      ]
+    },
+    {
+      "language": "ar",
+      "name": "Arabic",
+      "ships": false,
+      "reason": "no-frequency-list",
+      "commonWordsList": null,
+      "detail": [
+        "Same as Croatian: no frequency list, so no brake, so no run."
+      ]
+    }
+  ],
+
+  "_alsoAbsent": [
+    "ja, tr, mt and 'auto' are engine locales with no frequency list — same 'no brake ⇒ no run'",
+    "rule as hr/ar. They are listed here only so their absence is not read as an oversight."
+  ]
+}

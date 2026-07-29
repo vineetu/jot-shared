@@ -423,18 +423,59 @@ public enum VocabularyGate {
     public struct Detection: Sendable, Equatable {
         public let term: String           // the vocab term spotted in the audio
         public let aliases: [String]      // enriched aliases for the term (plausibility)
-        public let score: Float           // acoustic CTC score (diagnostics only)
+        public let score: Float           // acoustic CTC score
         public let startTime: TimeInterval
         public let endTime: TimeInterval
+        /// **§6 — `score` is an ACOUSTIC CTC score** on the spotter's scale, so
+        /// the confidence-conditional plausibility ceiling applies to this
+        /// detection. Set by the CTC keyword spotter and by nothing else.
+        ///
+        /// Defaults to **false** because `score` carries two incompatible
+        /// scales: the model-free corrector (§1) also emits `Detection`s, and
+        /// its detections must keep the flat 0.45 ceiling — its per-language
+        /// acceptance distances are its own knob.
+        public let acoustic: Bool
 
         public init(term: String, aliases: [String], score: Float,
-                    startTime: TimeInterval, endTime: TimeInterval) {
+                    startTime: TimeInterval, endTime: TimeInterval,
+                    acoustic: Bool = false) {
             self.term = term
             self.aliases = aliases
             self.score = score
             self.startTime = startTime
             self.endTime = endTime
+            self.acoustic = acoustic
         }
+    }
+
+    // MARK: - Confidence-conditional plausibility ceiling (§6)
+
+    /// The widest string distance an ACOUSTIC detection may span. Read off 433
+    /// real detections (E8): the widest gap the spotter was right about beyond
+    /// the ceiling is 0.615, and past 0.65 its far tail turns 5-right-to-10-wrong.
+    public static let acousticCeilingMax: Double = 0.65
+    /// Below this acoustic score the flat 0.45 ceiling holds: −1.793 is the
+    /// strongest score among beyond-ceiling detections whose term was never spoken.
+    public static let acousticScoreFloor: Float = -1.8
+    /// At or above this score the full 0.65 applies — 0.8 nats clear of the floor.
+    public static let acousticScoreCeiling: Float = -1.0
+
+    /// **§6 · confidence-conditional plausibility ceiling.** 29 % of all
+    /// correction opportunities sit beyond the flat 0.45 ceiling, and 35 of them
+    /// were already *detected* by the spotter and then discarded — "Herrakit" →
+    /// "Parakeet" is 0.62 string distance but was heard at −0.313, the best score
+    /// of five terms. Acoustic evidence is doing work string similarity cannot see.
+    ///
+    /// It must be CONDITIONAL, not a flat raise. A flat 0.65 admits 30 right and
+    /// 25 wrong. Beyond 0.45, score > −1.5 is 17 right / 1 wrong; below it,
+    /// 19 / 34 — two populations. Measured effect of the ramp: **+4.7 points of
+    /// end-to-end recall for zero additional false applies** (the
+    /// 0-in-22,490-words baseline holds), WER improved in all four measured arms.
+    public static func effectiveCeiling(acousticScore score: Float) -> Double {
+        if score <= acousticScoreFloor { return plausibilityCeiling }
+        if score >= acousticScoreCeiling { return acousticCeilingMax }
+        let t = Double(score - acousticScoreFloor) / Double(acousticScoreCeiling - acousticScoreFloor)
+        return plausibilityCeiling + t * (acousticCeilingMax - plausibilityCeiling)
     }
 
     /// **Detection-driven gate.** The Mac no-fork Nemotron entry point. Nemotron's
@@ -486,7 +527,6 @@ public enum VocabularyGate {
         struct Word {
             let text: String
             let range: Range<String.Index>
-            let fractionalIndex: Double   // position of this word's center in [0, 1)
         }
         var words: [Word] = []
         var idx = originalTranscript.startIndex
@@ -499,23 +539,75 @@ public enum VocabularyGate {
             while idx < originalTranscript.endIndex, !originalTranscript[idx].isWhitespace {
                 idx = originalTranscript.index(after: idx)
             }
-            words.append(Word(text: String(originalTranscript[start..<idx]), range: start..<idx, fractionalIndex: 0))
+            words.append(Word(text: String(originalTranscript[start..<idx]), range: start..<idx))
         }
         guard !words.isEmpty else {
             return Result(text: originalTranscript, applied: 0, blocked: [], proposals: [])
         }
-        // Fractional center of each word over the word SEQUENCE (index/count), the
-        // same axis the detection's time fraction is mapped onto.
         let n = words.count
-        words = words.enumerated().map { i, w in
-            Word(text: w.text, range: w.range, fractionalIndex: (Double(i) + 0.5) / Double(n))
+
+        // V2-5 · §3 — a multi-word window may only fuse words separated by PLAIN
+        // spaces, and may NEVER cross a word's own punctuation. Interior
+        // boundaries must be clean on both sides; a trailing mark on the
+        // window's LAST word is fine, because the span stops before it.
+        func windowIsFusable(_ lo: Int, _ hi: Int) -> Bool {
+            guard hi - lo > 1 else { return true }
+            for k in lo..<(hi - 1) {
+                guard let last = words[k].text.last, last.isLetter || last.isNumber else { return false }
+                guard let first = words[k + 1].text.first, first.isLetter || first.isNumber else { return false }
+                let gap = originalTranscript[words[k].range.upperBound..<words[k + 1].range.lowerBound]
+                guard !gap.isEmpty, gap.allSatisfy({ $0 == " " }) else { return false }
+            }
+            return true
         }
 
-        // For each detection, choose the best transcript word to (maybe) replace.
-        // A word can be claimed by at most one detection (first-come by detection
-        // order); a chosen word index → the detection that won it.
+        // §3 — per-word alignment against a term/alias of the SAME width.
+        // Whole-window plausibility alone is a text-corrupting brake: "claude
+        // wrote" measures 0.27 against "Claude Code" and "load code" 0.40 —
+        // both inside the ceiling. Per-word alignment (wrote↔Code = 0.60) is
+        // what refuses them.
+        func windowAligns(_ lo: Int, _ hi: Int, surfaces: [String]) -> Bool {
+            let width = hi - lo
+            let windowWords = (lo..<hi).map { words[$0].text }
+            for surface in surfaces {
+                let surfaceWords = surface.split(separator: " ").map(String.init)
+                guard surfaceWords.count == width else { continue }
+                if zip(windowWords, surfaceWords).allSatisfy({ wordAligns($0, $1) }) { return true }
+            }
+            return false
+        }
+
+        /// §3 — a multi-word span ends at the last alphanumeric of its final
+        /// word: the SAME boundary `absorbTrailingDuplicates` picks, so both
+        /// mechanisms produce identically-shaped spans.
+        func lastAlphanumericEnd(of range: Range<String.Index>) -> String.Index {
+            var hi = range.upperBound
+            while hi > range.lowerBound {
+                let prev = originalTranscript.index(before: hi)
+                if originalTranscript[prev].isLetter || originalTranscript[prev].isNumber { break }
+                hi = prev
+            }
+            return hi
+        }
+
+        // For each detection, choose the best transcript WINDOW to (maybe)
+        // replace. §3: scanning single tokens only meant a multi-word term
+        // matched purely by luck — when the engine happened to merge it into
+        // one token — because the loop compared one token against the WHOLE
+        // term ("cloud" vs "claudecode" = 0.60, rejected; the window
+        // "cloudcode" vs "claudecode" = 0.20, accepted). Widths are driven by
+        // the word count of the term and each alias; width 1 is ALWAYS tried,
+        // so single-word behaviour is byte-identical to the old path.
+        //
+        // Every word of the chosen window is claimed, so two detections can
+        // never take the same words. The chosen range is the SINGLE identity —
+        // anchors, decide input, published text, review row, revert range.
         struct Pick {
-            let wordIndex: Int
+            let wordRange: Range<Int>           // window word indices, PRE-absorb
+            let span: Range<String.Index>       // final char span, POST-absorb
+            let absorbed: Bool                  // absorbTrailingDuplicates widened it
+            let punctuationBlocked: Bool        // §2 host-token-punctuation sub-case
+            let ceiling: Double                 // §6 ceiling that admitted it
             let detection: Detection
         }
         var claimed = Set<Int>()
@@ -527,20 +619,107 @@ public enum VocabularyGate {
                 ? min(max(mid / totalAudioDuration, 0), 1)
                 : 0.5
 
-            var best: (index: Int, distance: Double)?
-            for (i, w) in words.enumerated() where !claimed.contains(i) {
-                guard plausible(original: normalize(w.text), term: det.term, aliases: det.aliases) else {
-                    continue
-                }
-                let positional = abs(w.fractionalIndex - frac)
-                if best == nil || positional < best!.distance {
-                    best = (i, positional)
+            // §6 — an ACOUSTIC detection earns a wider string-distance budget in
+            // proportion to how strongly it was heard; anything else keeps the
+            // flat 0.45. Computed once here and carried all the way into
+            // `decide`, so a span admitted at 0.60 cannot vanish there.
+            let ceiling = det.acoustic
+                ? Self.effectiveCeiling(acousticScore: det.score)
+                : Self.plausibilityCeiling
+
+            let surfaces = [det.term] + det.aliases
+            var widths: Set<Int> = [1]
+            for surface in surfaces {
+                let count = surface.split(separator: " ").count
+                if count >= 1 { widths.insert(count) }
+            }
+
+            // Selection: proportional-position distance among plausible
+            // candidates; on an EXACT tie the wider window wins. Ascending
+            // widths + the `>` tie-break below make that ordering explicit.
+            var best: (wordRange: Range<Int>, distance: Double)?
+            for width in widths.sorted() where width <= n {
+                for lo in 0...(n - width) {
+                    let hi = lo + width
+                    guard !(lo..<hi).contains(where: { claimed.contains($0) }) else { continue }
+                    guard windowIsFusable(lo, hi) else { continue }
+                    let windowText = (lo..<hi).map { words[$0].text }.joined(separator: " ")
+                    guard plausible(original: normalize(windowText), term: det.term,
+                                    aliases: det.aliases, ceiling: ceiling) else {
+                        continue
+                    }
+                    // The three rules apply to MULTI-WORD windows only.
+                    if width >= 2 {
+                        guard windowAligns(lo, hi, surfaces: surfaces) else { continue }
+                        guard lastAlphanumericEnd(of: words[hi - 1].range) > words[hi - 1].range.lowerBound else {
+                            continue
+                        }
+                    }
+                    let center = (Double(lo) + Double(hi)) / 2 / Double(n)
+                    let distance = abs(center - frac)
+                    let wins = best.map {
+                        distance < $0.distance || (distance == $0.distance && width > $0.wordRange.count)
+                    } ?? true
+                    if wins { best = (lo..<hi, distance) }
                 }
             }
-            if let pick = best {
-                claimed.insert(pick.index)
-                picks.append(Pick(wordIndex: pick.index, detection: det))
+
+            guard let chosen = best else { continue }
+            let lo = chosen.wordRange.lowerBound
+            let hi = chosen.wordRange.upperBound
+            // Width 1 keeps the FULL token (byte-identical to the old path —
+            // `preservingEdgePunctuation` re-attaches its edges). A multi-word
+            // window stops at the last alphanumeric of its final word.
+            var span = words[lo].range.lowerBound..<words[hi - 1].range.upperBound
+            if hi - lo > 1 {
+                span = span.lowerBound..<lastAlphanumericEnd(of: words[hi - 1].range)
             }
+
+            // §2 · jot-shared#1 — reuse the rescore path's dedup guard verbatim.
+            // A multi-word term placed on a NARROWER span leaves the transcript's
+            // own copy of the term's trailing word(s) standing right after it
+            // ("Claude Code" over "Claude" → "Claude Code code"). Absorb them.
+            var absorbed = false
+            var punctuationBlocked = false
+            let spanText = String(originalTranscript[span])
+            if let widened = absorbTrailingDuplicates(
+                term: det.term, spanWord: spanText, range: span, in: originalTranscript) {
+                if let last = spanText.last, !(last.isLetter || last.isNumber) {
+                    // The host token carries its OWN trailing punctuation
+                    // ("ask Claude, code review"). Widening eats the comma;
+                    // not widening publishes the duplicate. Both mutate text
+                    // on a guess → block and log instead.
+                    punctuationBlocked = true
+                } else {
+                    span = widened
+                    absorbed = true
+                }
+            }
+
+            // Partial-term guard (see `spanIsOnlyPartOfTerm`). Checked AFTER
+            // absorb, so a span the widening completed is judged on its full
+            // width. No pick at all — a review row here would only ever read
+            // "we considered Claude Code over 'claude'", which is noise.
+            if !punctuationBlocked,
+               Self.spanIsOnlyPartOfTerm(span: String(originalTranscript[span]), term: det.term) {
+                diagnostics.record(
+                    category: .vocabularyGate,
+                    message: "partial-term-skipped \(originalTranscript[span]) → \(det.term)",
+                    metadata: ["score": String(format: "%.2f", det.score)])
+                continue
+            }
+
+            // Claim every word the final span covers, absorbed tail included.
+            var claimUpper = hi
+            if absorbed {
+                while claimUpper < n, words[claimUpper].range.lowerBound < span.upperBound {
+                    claimUpper += 1
+                }
+            }
+            for i in lo..<claimUpper { claimed.insert(i) }
+            picks.append(
+                Pick(wordRange: lo..<hi, span: span, absorbed: absorbed,
+                     punctuationBlocked: punctuationBlocked, ceiling: ceiling, detection: det))
         }
 
         guard !picks.isEmpty else {
@@ -548,7 +727,7 @@ public enum VocabularyGate {
         }
 
         // Resolve decisions in positional (document) order so splicing is forward.
-        picks.sort { $0.wordIndex < $1.wordIndex }
+        picks.sort { $0.span.lowerBound < $1.span.lowerBound }
 
         var result = ""
         var cursor = originalTranscript.startIndex
@@ -557,29 +736,64 @@ public enum VocabularyGate {
         var proposals: [Proposal] = []
 
         for pick in picks {
-            let w = words[pick.wordIndex]
-            guard w.range.lowerBound >= cursor else { continue }   // overlap guard
-            let originalWord = String(originalTranscript[w.range])
+            guard pick.span.lowerBound >= cursor else { continue }   // overlap guard
+            let originalWord = String(originalTranscript[pick.span])
             // Identity no-op: the spotter fires on the audio whether or not the
-            // decoder ALREADY wrote the term correctly. If the matched word is
+            // decoder ALREADY wrote the term correctly. If the matched span is
             // already the term, there is nothing to correct — skip it so we don't
             // emit a spurious applied "Vikram → Vikram" verdict.
-            if Self.normalize(originalWord) == Self.normalize(pick.detection.term) { continue }
+            //
+            // §2 — this MUST be re-checked AFTER widening, otherwise an
+            // already-correct "Claude Code" publishes unchanged text but still
+            // fires a UI chip and a review row. The identity relation differs by
+            // span: NOT-absorbed → normalized (case-insensitive); ABSORBED →
+            // ordinal, because the widening already proved the term's words are
+            // present, and casing IS the term for a multi-word proper noun.
+            if pick.absorbed {
+                if originalWord == pick.detection.term { continue }
+            } else if Self.normalize(originalWord) == Self.normalize(pick.detection.term) {
+                continue
+            }
             // Synthesize a neutral proposal so the SAME iOS `decide` runs: margin 0
             // (replacementScore nil, originalScore 0), replacementWord = the term.
             let synthetic = RescoreProposal(
                 originalWord: originalWord, replacementWord: pick.detection.term,
                 shouldReplace: true, replacementScore: nil, originalScore: 0)
-            let d = decide(
+            var d = decide(
                 synthetic, originalWord: originalWord,
                 wordConfidence: [:], overrides: overrides,
-                aliases: pick.detection.aliases, commonWords: commonWordSet)
+                aliases: pick.detection.aliases, commonWords: commonWordSet,
+                ceiling: pick.ceiling)
+            // Force-blocks that live HERE and not in `decide` — `decide` is
+            // pinned byte-for-byte by the shared `vocabulary_gate_decide`
+            // fixtures, and both of these are measured properties of the
+            // SPOTTER path, not of the decision rules.
+            let forcedBlock: String? = {
+                if pick.punctuationBlocked { return "host-token-punctuation" }
+                if Self.possessiveOverwrite(span: originalWord, term: pick.detection.term) {
+                    return "possessive"
+                }
+                if Self.inflectionOverwrite(
+                    span: originalWord, term: pick.detection.term,
+                    commonWords: commonWordSet, resource: commonWordsResource) {
+                    return "inflection"
+                }
+                return nil
+            }()
+            if let reason = forcedBlock {
+                // An unsafe span is never a live-pill ask candidate.
+                d = (false, d.confidence, d.margin, "BLOCK", d.unsure, false)
+                diagnostics.record(
+                    category: .vocabularyGate,
+                    message: "force-block(\(reason)) \(originalWord) → \(pick.detection.term)",
+                    metadata: ["score": String(format: "%.2f", pick.detection.score)])
+            }
             diagnostics.record(
                 category: .vocabularyGate,
                 message: "gate(spot) \(originalWord) → \(pick.detection.term)",
                 metadata: ["decision": d.label, "score": String(format: "%.2f", pick.detection.score)])
 
-            result += originalTranscript[cursor..<w.range.lowerBound]
+            result += originalTranscript[cursor..<pick.span.lowerBound]
             let publishedStart = result.count
             // Preserve edge punctuation attached to the original word so a bare
             // term doesn't eat the original's comma/period.
@@ -588,7 +802,7 @@ public enum VocabularyGate {
                 : originalWord
             result += publishedText
 
-            let originalStart = originalTranscript.distance(from: originalTranscript.startIndex, to: w.range.lowerBound)
+            let originalStart = originalTranscript.distance(from: originalTranscript.startIndex, to: pick.span.lowerBound)
             proposals.append(
                 Proposal(
                     originalWord: originalWord,
@@ -599,9 +813,9 @@ public enum VocabularyGate {
                     margin: d.margin,
                     unsure: d.unsure,
                     askCandidate: d.askCandidate,
-                    occurrenceIndex: pick.wordIndex,
+                    occurrenceIndex: pick.wordRange.lowerBound,
                     originalStart: originalStart,
-                    originalLength: originalTranscript.distance(from: w.range.lowerBound, to: w.range.upperBound),
+                    originalLength: originalTranscript.distance(from: pick.span.lowerBound, to: pick.span.upperBound),
                     publishedStart: publishedStart,
                     publishedLength: publishedText.count,
                     alternates: [],
@@ -609,10 +823,182 @@ public enum VocabularyGate {
                 )
             )
             if d.pass { applied += 1 } else { blocked.append(originalWord) }
-            cursor = w.range.upperBound
+            cursor = pick.span.upperBound
         }
         result += originalTranscript[cursor...]
         return Result(text: result, applied: applied, blocked: blocked, proposals: proposals)
+    }
+
+    // MARK: - Inflection guard (§5 — PARTIAL, read the limits)
+
+    /// **§5 — the worst failure class outside English, and only partly solved.**
+    ///
+    /// The corrector overwrites a *correctly transcribed inflected form* with a
+    /// term's base form:
+    ///
+    ///     Russian:  Версали (Versailles) → Версаче (Versace)   ← brake blocked nothing
+    ///               Аризона → Аризоны
+    ///     Finnish:  jaavalainen → Jaavalaisten
+    ///     Czech:    Fatima → Fatimě
+    ///     German:   gewürzten → Gewürzen
+    ///
+    /// **The honest result: shape alone does not discriminate.** Over 1207
+    /// applied corrections (17.4 % base false rate) the inflection shape appears
+    /// in 76 false applies and 266 correct ones — firing on shape alone destroys
+    /// 30 real corrections to prevent 33 bad ones. Proper nouns in an oblique
+    /// case are simply unreachable: the same Russian corpus contains
+    /// Аризона→Аризоны (wrong) and Аризоне→Аризоны (right) from the SAME term —
+    /// identical length, stem, tail and distance, neither in any frequency list.
+    /// No threshold separates them. Do not try; that is measured, not assumed.
+    ///
+    /// What ships is the CONJUNCTION of both arms below, which lifts precision
+    /// ×4.65 on a small slice: it catches 5 of 29 overwrites, taking Greek from
+    /// 1.42 → 0.89 FP/1k, Polish overwrites 3 → 0 and Russian 4 → 2, at a cost of
+    /// 4 correct corrections (all Greek). English is unaffected — it fires zero
+    /// times there.
+    static func inflectionOverwrite(
+        span: String, term: String, commonWords: Set<String>, resource: String?
+    ) -> Bool {
+        let heard = skeleton(span)
+        let base = skeleton(term)
+        // ARM 1 · structural — span and term share a stem of ≥ 4 scalars and
+        // diverge only in a tail of ≤ 3 either side.
+        var stem = 0
+        while stem < heard.count, stem < base.count, heard[stem] == base[stem] { stem += 1 }
+        guard stem >= 4, heard.count - stem <= 3, base.count - stem <= 3 else { return false }
+        // ARM 2 · lexical — the span is ≥ 7 scalars and is an everyday word
+        // carrying one extra trailing character: "the frequency list widened by
+        // one trailing character". That is what makes the span a real INFLECTED
+        // FORM rather than a mishearing, which is the whole failure class.
+        // Neither arm is safe alone; the conjunction is the point.
+        //
+        // AMBIGUITY, flagged for reconciliation with jot-windows: the spec's
+        // phrase "the span ... is an everyday word minus its final character"
+        // also reads as span+1char ∈ list. That reading was tried and rejected —
+        // it selects spans that are a real word with its last letter LOPPED OFF,
+        // which are not words at all, so protecting them contradicts the guard's
+        // own purpose sentence. Neither reading fires on any of the spec's five
+        // illustrative examples, so they cannot settle it. If the two ports
+        // disagree on a real corpus, this is the line to look at.
+        guard heard.count >= 7, let resource else { return false }
+        return NormalizedCommonWords.shared
+            .words(forResource: resource, from: commonWords)
+            .contains(String(heard.dropLast()))
+    }
+
+    /// The frequency list under the gate's OWN normalization, built lazily per
+    /// language and cached. Comparing a `skeleton` against raw file lines would
+    /// silently miss on any list that ships decomposed Unicode — both sides must
+    /// be normalized the same way, and 24,000 entries is too much to re-derive
+    /// per correction.
+    private final class NormalizedCommonWords: @unchecked Sendable {
+        static let shared = NormalizedCommonWords()
+        private let lock = NSLock()
+        private var cache: [String: Set<String>] = [:]
+
+        func words(forResource resource: String, from raw: Set<String>) -> Set<String> {
+            lock.lock()
+            if let cached = cache[resource] { lock.unlock(); return cached }
+            lock.unlock()
+            var built = Set<String>()
+            built.reserveCapacity(raw.count)
+            for word in raw {
+                let s = skeleton(word)
+                if !s.isEmpty { built.insert(String(s)) }
+            }
+            lock.lock()
+            cache[resource] = built
+            lock.unlock()
+            return built
+        }
+    }
+
+    // MARK: - Partial-term guard (Swift-side addition, reported upstream)
+
+    /// **Not in the Windows spec — a third bug in the §2/§3 family, found while
+    /// implementing §6. Reported upstream so the two ports can re-converge; do
+    /// not drop this on a fixture re-sync without checking that jot-windows has
+    /// its own equivalent.**
+    ///
+    /// A multi-word term must never be placed on a span that ONE of the term's
+    /// OWN words explains better than the whole term does — that span is the
+    /// term's first word, correctly transcribed, and the term's remaining words
+    /// are simply not in the text. Publishing over it INSERTS words the decoder
+    /// never wrote:
+    ///
+    ///     "I love claude wrote today" + "Claude Code"
+    ///       → "I love Claude Code wrote today"      ← measured, pre-existing
+    ///     "I love load code today"   + "Claude Code" (acoustic, −0.3)
+    ///       → "I love load Claude Code today"       ← measured, opened by §6
+    ///
+    /// The second is why this cannot wait: §6 widens the ceiling to 0.65, and
+    /// "code" vs "claudecode" is 0.60 — the acoustic ramp hands a bare "code"
+    /// the whole two-word term. §6 reports zero additional false applies, so
+    /// jot-windows must already refuse this somehow.
+    ///
+    /// Threshold-free on purpose: it compares the span's distance to the whole
+    /// term against its distance to each of the term's words, so it needs no new
+    /// tunable. The legitimate merged-token case — the ONLY way a multi-word
+    /// term ever landed before §3 — is untouched, because "claudecode" is
+    /// 0.00 from the whole term and 0.40 from "claude".
+    static func spanIsOnlyPartOfTerm(span: String, term: String) -> Bool {
+        let termWords = term.split(separator: " ").map(String.init)
+        guard termWords.count >= 2 else { return false }
+        // Only the narrower-span shape §2/§3 flagged. A span that already covers
+        // every term word (directly, or after absorbTrailingDuplicates widened
+        // it) is out of scope.
+        guard span.split(separator: " ").count < termWords.count else { return false }
+        let heard = skeleton(span)
+        let whole = skeleton(term)
+        guard !heard.isEmpty, !whole.isEmpty else { return false }
+        let toWholeTerm = Double(levenshtein(heard, whole)) / Double(max(heard.count, whole.count))
+        for word in termWords {
+            let s = skeleton(word)
+            guard !s.isEmpty else { continue }
+            let toWord = Double(levenshtein(heard, s)) / Double(max(heard.count, s.count))
+            if toWord < toWholeTerm { return true }
+        }
+        return false
+    }
+
+    // MARK: - Possessive guard (§4)
+
+    /// **§4 — never swap a possessive span for a non-possessive term.**
+    ///
+    /// `skeleton` drops apostrophes, so a *correctly transcribed* "Mariana's"
+    /// measures **0.00** against the term "Marianas" — a perfect match — and the
+    /// gate silently rewrites a word the engine got right. This was 5 of the 20
+    /// false applies in the English measurement (E5); adding the guard took the
+    /// shipping spotter from 0.89 → 0.67 false applies per 1000 words.
+    ///
+    /// Deliberately narrow: only the *trailing* `'s` / `'` shape counts, so an
+    /// internal apostrophe ("O'Brien" → term "OBrien") is untouched, and a
+    /// possessive TERM ("Mariana's") can still be applied to a misheard
+    /// possessive span.
+    static func possessiveOverwrite(span: String, term: String) -> Bool {
+        isPossessive(span) && !isPossessive(term)
+    }
+
+    private static func isPossessive(_ s: String) -> Bool {
+        // Drop trailing punctuation that is NOT an apostrophe, so "Mariana's,"
+        // is still recognised as a possessive.
+        var t = Substring(s)
+        while let last = t.last, !(last.isLetter || last.isNumber),
+              last != "'", last != "\u{2019}" {
+            t = t.dropLast()
+        }
+        guard let last = t.last else { return false }
+        guard last == "'" || last == "\u{2019}" || last == "s" || last == "S" else { return false }
+        if last == "'" || last == "\u{2019}" {
+            // Plural possessive ("Marianas'") — the mark must follow a real word.
+            let head = t.dropLast()
+            return head.last.map { $0.isLetter || $0.isNumber } ?? false
+        }
+        // "...'s" / "...’s": the apostrophe must sit before the final s, and
+        // before it a real word ("as" and "its" are not possessives).
+        let head = t.dropLast()
+        guard let mark = head.last, mark == "'" || mark == "\u{2019}" else { return false }
+        return head.dropLast().last.map { $0.isLetter || $0.isNumber } ?? false
     }
 
     /// Carry any LEADING and TRAILING punctuation from the original token onto
@@ -639,7 +1025,12 @@ public enum VocabularyGate {
         wordConfidence: [String: Float],
         overrides: [CorrectionStore.OverrideEntry],
         aliases: [String],
-        commonWords: Set<String>
+        commonWords: Set<String>,
+        // §6 — whatever admits a detection at 0.60 during PLACEMENT must pass the
+        // same ceiling in here, or the correction vanishes with no proposal, no
+        // review row and no log. Defaults to the flat 0.45, so the rescore path
+        // and the `vocabulary_gate_decide` fixtures are untouched.
+        ceiling: Double = plausibilityCeiling
     ) -> (pass: Bool, confidence: Float, margin: Float, label: String, unsure: Bool, askCandidate: Bool) {
         let margin = (r.replacementScore ?? r.originalScore) - r.originalScore
         // The EFFECTIVE span identity (aligned-narrowed / dedup-widened) when
@@ -708,7 +1099,7 @@ public enum VocabularyGate {
         //     and BEFORE the multi-word fast-path so it closes that bypass too.
         //     A block here still emits a reviewable "kept" record — confirming
         //     it in review teaches the exception (net ≥ 1 → step 0 override).
-        if !plausible(original: base, term: term, aliases: aliases) {
+        if !plausible(original: base, term: term, aliases: aliases, ceiling: ceiling) {
             // Implausible garbage ("Vikram"→"Sriram") — never an ask candidate.
             return (false, confidence, margin, "BLOCK", unsure, false)
         }
@@ -987,14 +1378,17 @@ public enum VocabularyGate {
     /// 0.50, name→jamy 0.50 (all block).
     public static let plausibilityCeiling: Double = 0.45
 
-    private static func plausible(original: String, term: String, aliases: [String]) -> Bool {
+    private static func plausible(
+        original: String, term: String, aliases: [String],
+        ceiling: Double = plausibilityCeiling
+    ) -> Bool {
         let heard = skeleton(original)
         guard !heard.isEmpty else { return true }
         for candidate in [term] + aliases {
             let c = skeleton(candidate)
             guard !c.isEmpty else { continue }
             let ratio = Double(levenshtein(heard, c)) / Double(max(heard.count, c.count))
-            if ratio <= plausibilityCeiling { return true }
+            if ratio <= ceiling { return true }
         }
         return false
     }
@@ -1005,7 +1399,10 @@ public enum VocabularyGate {
     /// (diff-review fix) so canonically-equivalent Unicode (composed vs
     /// decomposed "é") skeletons identically instead of dropping a
     /// combining mark.
-    private static func skeleton(_ s: String) -> [Character] {
+    /// Internal, not private: `VocabularyCorrector` (§1) matches with the EXACT
+    /// same metric the gate judges with. Two metrics that drift apart would let
+    /// the corrector propose spans the gate then silently refuses.
+    static func skeleton(_ s: String) -> [Character] {
         s.precomposedStringWithCanonicalMapping.lowercased().unicodeScalars
             .filter { CharacterSet.alphanumerics.contains($0) }
             .map(Character.init)
@@ -1013,7 +1410,7 @@ public enum VocabularyGate {
 
     /// Plain two-row Levenshtein. Inputs are short (words/short phrases), so
     /// O(a·b) is trivially cheap even on the transcription hot path.
-    private static func levenshtein(_ a: [Character], _ b: [Character]) -> Int {
+    static func levenshtein(_ a: [Character], _ b: [Character]) -> Int {
         if a.isEmpty { return b.count }
         if b.isEmpty { return a.count }
         var prev = Array(0...b.count)

@@ -338,11 +338,158 @@ final class GoldenFixtureTests: XCTestCase {
         }
     }
 
+    // MARK: - VocabularyCorrector (§1 — the model-free 19-language corrector)
+
+    private struct CorrectorTermFixture: Decodable {
+        let text: String; let aliases: [String]?
+    }
+    private struct CorrectorCase: Decodable {
+        let name: String
+        let transcript: String
+        let language: String
+        let terms: [CorrectorTermFixture]
+        let expectText: String
+        let expectProposals: [DetectionExpectProposal]?
+        let expectProposalCount: Int?
+        let expectDetectionCount: Int?
+    }
+
+    func testVocabularyCorrectorGolden() throws {
+        let cases = try loadFixture("corrector_apply", as: [CorrectorCase].self)
+        XCTAssertFalse(cases.isEmpty)
+        for c in cases {
+            let terms = c.terms.map { VocabTerm(text: $0.text, aliases: $0.aliases ?? []) }
+            if let expected = c.expectDetectionCount {
+                let found = VocabularyCorrector.detections(
+                    in: c.transcript, terms: terms, language: c.language)
+                XCTAssertEqual(found.count, expected, "corrector[\(c.name)] detection count")
+            }
+            let result = VocabularyCorrector.correct(
+                transcript: c.transcript, terms: terms, language: c.language,
+                commonWords: BundledCommonWordsProvider.shared)
+
+            XCTAssertEqual(result.text, c.expectText, "corrector[\(c.name)] text")
+            if let count = c.expectProposalCount {
+                XCTAssertEqual(result.proposals.count, count, "corrector[\(c.name)] proposal count")
+            }
+            for ep in c.expectProposals ?? [] {
+                guard let p = result.proposals.first(where: {
+                    $0.originalWord.lowercased() == ep.originalWord.lowercased()
+                }) else {
+                    XCTFail("corrector[\(c.name)] missing proposal for \(ep.originalWord)"); continue
+                }
+                XCTAssertEqual(p.outcome, ep.outcome, "corrector[\(c.name)] outcome")
+                if let ask = ep.askCandidate {
+                    XCTAssertEqual(p.askCandidate, ask, "corrector[\(c.name)] askCandidate")
+                }
+            }
+        }
+    }
+
+    /// The language table IS the deliverable of §1 — "shipping to 19 languages on
+    /// an English measurement would have been unsafe". This pins its shape, and
+    /// pins that every served language actually has the frequency list its safety
+    /// depends on: a served language whose list is missing would run with the
+    /// common-word brake ABSENT, which is the one thing §1.1 forbids outright.
+    func testCorrectorLanguageTableIntegrity() throws {
+        XCTAssertEqual(VocabularyCorrector.supported.count, 19, "the 19-language capability")
+
+        let uncapped = VocabularyCorrector.supported.filter { $0.value.maxDistance == nil }
+        XCTAssertEqual(Set(uncapped.keys),
+                       ["en", "cs", "da", "es", "fi", "fr", "hu", "it", "nl", "pt", "ro", "sk", "sv"],
+                       "uncapped languages (E6)")
+        XCTAssertEqual(VocabularyCorrector.supported["bg"]?.maxDistance, 0.25)
+        XCTAssertEqual(VocabularyCorrector.supported["de"]?.maxDistance, 0.15, "tightest shipped cap")
+        for code in ["el", "pl", "ru", "uk"] {
+            XCTAssertEqual(VocabularyCorrector.supported[code]?.maxDistance, 0.20, "\(code) cap")
+        }
+
+        // Every served language's brake must actually load.
+        for code in VocabularyCorrector.supported.keys {
+            let resource = VocabularyCorrector.commonWordsResource(for: code)
+            XCTAssertNotNil(resource, "\(code) resource name")
+            let words = BundledCommonWordsProvider.shared.words(forResource: resource)
+            XCTAssertGreaterThan(words.count, 1000, "\(code) frequency list must actually load")
+        }
+
+        // Deliberate absences, each for a DIFFERENT reason — all four are
+        // decisions someone will otherwise "fix".
+        for code in ["sl", "sr", "hr", "ar", "xx"] {
+            XCTAssertFalse(VocabularyCorrector.isServed(code), "\(code) must not be served")
+            XCTAssertNotNil(VocabularyCorrector.unservedReason(code), "\(code) needs a recorded reason")
+        }
+        XCTAssertNil(VocabularyCorrector.unservedReason("en"))
+        // §1.2 — fail closed, at the TIGHTEST value.
+        XCTAssertEqual(VocabularyCorrector.acceptanceDistance(for: "xx"),
+                       VocabularyCorrector.unmeasuredMaxDistance)
+        // Locale identifiers must not fall off the table.
+        XCTAssertTrue(VocabularyCorrector.isServed("es-MX"))
+        XCTAssertTrue(VocabularyCorrector.isServed("pt_BR"))
+        XCTAssertEqual(VocabularyCorrector.commonWordsResource(for: "es-MX"), "common-words-es")
+        XCTAssertEqual(VocabularyCorrector.commonWordsResource(for: "en-GB"), "common-words")
+    }
+
+    /// §5 is a CONJUNCTION of two arms, and the spec is emphatic that neither is
+    /// safe alone — firing on the structural shape by itself destroys 30 real
+    /// corrections to prevent 33 bad ones. A pipeline fixture can only show the
+    /// pair firing together, so pin each arm independently here, using the
+    /// spec's own German example.
+    func testInflectionGuardRequiresBothArms() {
+        let resource = "test-inflection-\(#function)"
+        let everyday: Set<String> = ["gewürzte", "abläufe", "kurz"]
+
+        // BOTH arms: stem "gewürz" (6), tails "ten"/"en" (3 and 2), span is 9
+        // scalars and is "gewürzte" widened by one trailing character.
+        XCTAssertTrue(
+            VocabularyGate.inflectionOverwrite(
+                span: "gewürzten", term: "Gewürzen",
+                commonWords: everyday, resource: resource),
+            "both arms satisfied → block")
+
+        // STRUCTURAL only — the span is nowhere near the frequency list.
+        XCTAssertFalse(
+            VocabularyGate.inflectionOverwrite(
+                span: "zzzürzten", term: "Zzzürzen",
+                commonWords: everyday, resource: resource),
+            "structural alone must NOT block")
+
+        // LEXICAL only — same span, but the term shares no stem with it.
+        XCTAssertFalse(
+            VocabularyGate.inflectionOverwrite(
+                span: "gewürzten", term: "Paprika",
+                commonWords: everyday, resource: resource),
+            "lexical alone must NOT block")
+
+        // The ≥7-scalar floor.
+        XCTAssertFalse(
+            VocabularyGate.inflectionOverwrite(
+                span: "kurzy", term: "Kurzi",
+                commonWords: everyday, resource: resource),
+            "under the 7-scalar floor must NOT block")
+
+        // A tail longer than 3 either side is a different word, not an inflection.
+        XCTAssertFalse(
+            VocabularyGate.inflectionOverwrite(
+                span: "gewürzten", term: "Gewürabcde",
+                commonWords: everyday, resource: resource),
+            "tail > 3 must NOT block")
+
+        // No resource ⇒ no frequency list ⇒ the lexical arm cannot be evaluated,
+        // so the guard must fail SAFE (not block) rather than guess.
+        XCTAssertFalse(
+            VocabularyGate.inflectionOverwrite(
+                span: "gewürzten", term: "Gewürzen",
+                commonWords: everyday, resource: nil),
+            "no resource → cannot evaluate the lexical arm → do not block")
+    }
+
     // MARK: - VocabularyGate.applyFromDetections (Mac no-fork path)
 
     private struct DetectionFixture: Decodable {
         let term: String; let aliases: [String]; let score: Float
         let startTime: TimeInterval; let endTime: TimeInterval
+        /// §6 — omitted means `false`, matching `Detection`'s own default.
+        let acoustic: Bool?
     }
     private struct DetectionExpectProposal: Decodable {
         let originalWord: String; let outcome: String; let askCandidate: Bool?
@@ -366,7 +513,8 @@ final class GoldenFixtureTests: XCTestCase {
             let dets = c.detections.map {
                 VocabularyGate.Detection(
                     term: $0.term, aliases: $0.aliases, score: $0.score,
-                    startTime: $0.startTime, endTime: $0.endTime)
+                    startTime: $0.startTime, endTime: $0.endTime,
+                    acoustic: $0.acoustic ?? false)
             }
             let overrides = (c.overrides ?? []).map {
                 CorrectionStore.OverrideEntry(

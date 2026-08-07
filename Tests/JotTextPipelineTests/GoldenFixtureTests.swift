@@ -98,6 +98,19 @@ final class GoldenFixtureTests: XCTestCase {
         }
     }
 
+    // MARK: - PostProcessing
+
+    func testPostProcessingGolden() throws {
+        let cases = try loadFixture("post_processing", as: [StringCase].self)
+        XCTAssertFalse(cases.isEmpty)
+        for c in cases {
+            XCTAssertEqual(
+                PostProcessing.apply(c.input), c.expected,
+                "post_processing[\(c.name)] input=\(c.input.debugDescription)"
+            )
+        }
+    }
+
     // MARK: - FillerWordCleaner
 
     func testFillerWordCleanerGolden() throws {

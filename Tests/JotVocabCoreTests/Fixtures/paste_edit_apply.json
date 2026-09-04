@@ -1,0 +1,62 @@
+[
+  {
+    "name": "single-edit",
+    "baseline": "I met Jamy at noon.",
+    "edits": [{ "start": 6, "end": 10, "text": "Jamie" }],
+    "expected": "I met Jamie at noon."
+  },
+  {
+    "name": "two-edits-apply-descending-so-offsets-never-shift",
+    "baseline": "Jamy called Rama today",
+    "edits": [
+      { "start": 0, "end": 4, "text": "Jamie" },
+      { "start": 12, "end": 16, "text": "Ramaa" }
+    ],
+    "expected": "Jamie called Ramaa today"
+  },
+  {
+    "name": "casing-only-edit-is-a-real-edit",
+    "baseline": "I use Claude code daily",
+    "edits": [{ "start": 6, "end": 17, "text": "Claude Code" }],
+    "expected": "I use Claude Code daily"
+  },
+  {
+    "name": "overlapping-batch-is-rejected-whole",
+    "baseline": "I use Claude code daily",
+    "edits": [
+      { "start": 6, "end": 17, "text": "Claude Code" },
+      { "start": 13, "end": 17, "text": "Code" }
+    ],
+    "expected": null
+  },
+  {
+    "name": "adjacent-edits-do-not-overlap",
+    "baseline": "abcd",
+    "edits": [
+      { "start": 0, "end": 2, "text": "X" },
+      { "start": 2, "end": 4, "text": "Y" }
+    ],
+    "expected": "XY"
+  },
+  {
+    "name": "degenerate-edit-is-rejected-whole",
+    "baseline": "I met Jamy at noon.",
+    "edits": [
+      { "start": 6, "end": 10, "text": "Jamie" },
+      { "start": 14, "end": 14, "text": "INSERTED" }
+    ],
+    "expected": null
+  },
+  {
+    "name": "out-of-bounds-edit-is-rejected-whole",
+    "baseline": "short",
+    "edits": [{ "start": 3, "end": 99, "text": "nope" }],
+    "expected": null
+  },
+  {
+    "name": "empty-batch-returns-the-baseline",
+    "baseline": "untouched",
+    "edits": [],
+    "expected": "untouched"
+  }
+]

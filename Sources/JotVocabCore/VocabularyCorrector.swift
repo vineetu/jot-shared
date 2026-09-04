@@ -221,17 +221,31 @@ public enum VocabularyCorrector {
                     guard !heard.isEmpty else { continue }
 
                     var best = Double.infinity
+                    // Tracked separately from `best` because a 0 against the
+                    // TERM and a 0 against an ALIAS mean opposite things.
+                    var exactlyMatchesTermText = false
+                    let termSkeleton = VocabularyGate.skeleton(term.text)
                     for surface in surfaces {
                         let s = VocabularyGate.skeleton(surface)
                         guard !s.isEmpty else { continue }
                         let d = Double(VocabularyGate.levenshtein(heard, s))
                             / Double(max(heard.count, s.count))
                         best = Swift.min(best, d)
+                        if d == 0, s == termSkeleton { exactlyMatchesTermText = true }
                     }
-                    // A distance of exactly 0 is the term already written
-                    // correctly — the gate's identity no-op would drop it, so
-                    // don't spend a detection on it.
-                    guard best > 0, best <= ceiling else { continue }
+                    // Distance 0 against the TERM ITSELF is the term already
+                    // written correctly — the gate's identity no-op would drop
+                    // it, so don't spend a detection on it.
+                    //
+                    // Distance 0 against an ALIAS is the opposite: the user
+                    // wrote that alias down precisely because it is what the
+                    // recogniser produces, so an exact hit is the STRONGEST
+                    // signal to correct, not a reason to skip. Treating both
+                    // zeros the same silently broke the common case — you type
+                    // "october" as a sounds-like for "Okta", the engine writes
+                    // exactly "October", and nothing happened.
+                    if exactlyMatchesTermText { continue }
+                    guard best <= ceiling else { continue }
                     candidates.append(Candidate(range: lo..<hi, distance: best, term: term))
                 }
             }

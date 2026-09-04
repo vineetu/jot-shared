@@ -1,0 +1,11 @@
+[
+  {"name": "empty-set", "ranges": [], "expected": false},
+  {"name": "single", "ranges": [[0, 5]], "expected": false},
+  {"name": "disjoint", "ranges": [[0, 4], [6, 10]], "expected": false},
+  {"name": "adjacent-touching-is-not-overlap", "ranges": [[0, 4], [4, 8]], "expected": false},
+  {"name": "alt-tail-swallows-the-next-ask", "ranges": [[6, 17], [13, 17]], "expected": true},
+  {"name": "nested", "ranges": [[0, 20], [5, 7]], "expected": true},
+  {"name": "unsorted-input", "ranges": [[30, 40], [0, 4], [3, 6]], "expected": true},
+  {"name": "long-first-then-two-disjoint-shorts", "ranges": [[0, 100], [120, 130], [140, 150]], "expected": false},
+  {"name": "empty-range-is-ignored", "ranges": [[3, 3], [0, 10]], "expected": false}
+]

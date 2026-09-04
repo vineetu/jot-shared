@@ -615,4 +615,159 @@ final class GoldenFixtureTests: XCTestCase {
         XCTAssertEqual(round.map(\.text), terms.map(\.text))
         XCTAssertEqual(round.map(\.aliases), terms.map(\.aliases))
     }
+
+    // MARK: - PasteEditResolver (F3 — exact paste-edit spans)
+
+    private struct ResolveCase: Decodable {
+        let name: String
+        let baseline: String
+        let needle: String
+        let anchor: Int
+        let contextBefore: String
+        let contextAfter: String
+        let primaryLengthInNeedle: Int?
+        /// Both null = the edit is NOT honorable and must fail safe.
+        let expectStart: Int?
+        let expectText: String?
+    }
+
+    func testPasteEditResolveGolden() throws {
+        let cases = try loadFixture("paste_edit_resolve", as: [ResolveCase].self)
+        XCTAssertFalse(cases.isEmpty)
+        for c in cases {
+            let span = PasteEditResolver.resolve(
+                needle: c.needle, anchoredAt: c.anchor, in: c.baseline,
+                contextBefore: c.contextBefore, contextAfter: c.contextAfter,
+                primaryLengthInNeedle: c.primaryLengthInNeedle)
+            guard let expectStart = c.expectStart, let expectText = c.expectText else {
+                XCTAssertNil(span, "paste_edit_resolve[\(c.name)] must fail safe")
+                continue
+            }
+            XCTAssertEqual(span?.start, expectStart, "paste_edit_resolve[\(c.name)] start")
+            XCTAssertEqual(span?.text, expectText, "paste_edit_resolve[\(c.name)] text")
+            // The descriptor's whole point: the consumer can re-derive the exact
+            // substring from (start, text.count) against its own baseline copy.
+            if let span {
+                let chars = Array(c.baseline)
+                XCTAssertEqual(span.end, span.start + span.text.count,
+                               "paste_edit_resolve[\(c.name)] end")
+                XCTAssertEqual(String(chars[span.start..<span.end]), span.text,
+                               "paste_edit_resolve[\(c.name)] substring agreement")
+            }
+        }
+    }
+
+    private struct OverlapCase: Decodable {
+        let name: String
+        let ranges: [[Int]]
+        let expected: Bool
+    }
+
+    func testPasteEditOverlapGolden() throws {
+        let cases = try loadFixture("paste_edit_overlap", as: [OverlapCase].self)
+        XCTAssertFalse(cases.isEmpty)
+        for c in cases {
+            let ranges = c.ranges.map { $0[0]..<$0[1] }
+            XCTAssertEqual(PasteEditResolver.hasOverlap(ranges), c.expected,
+                           "paste_edit_overlap[\(c.name)]")
+            // Pairwise `overlaps` must agree with the batch check.
+            var pairwise = false
+            for i in ranges.indices {
+                for j in ranges.indices where j > i && PasteEditResolver.overlaps(ranges[i], ranges[j]) {
+                    pairwise = true
+                }
+            }
+            XCTAssertEqual(pairwise, c.expected, "paste_edit_overlap[\(c.name)] pairwise")
+        }
+    }
+
+    /// Review finding 8's concrete shape: an alternate's `find` deliberately
+    /// widens through the FOLLOWING words, so it can cover a separate ask's word.
+    /// The two spans resolve individually — only interval validation catches it.
+    func testAlternateSpanCanCoverTheNextAsk() {
+        let baseline = "I use Claude code daily"
+        let alt = PasteEditResolver.resolve(
+            needle: "Claude code", anchoredAt: 6, in: baseline,
+            contextBefore: "I use ", contextAfter: " daily", primaryLengthInNeedle: 6)
+        let next = PasteEditResolver.resolve(
+            needle: "code", anchoredAt: 13, in: baseline,
+            contextBefore: "I use Claude ", contextAfter: " daily")
+        XCTAssertNotNil(alt)
+        XCTAssertNotNil(next)
+        guard let alt, let next else { return }
+        XCTAssertTrue(PasteEditResolver.overlaps(alt.range, next.range),
+                      "the alternate's widened span covers the following ask's word")
+        XCTAssertTrue(PasteEditResolver.hasOverlap([alt.range, next.range]))
+    }
+
+    private struct ApplyCase: Decodable {
+        struct E: Decodable { let start: Int; let end: Int; let text: String }
+        let name: String
+        let baseline: String
+        let edits: [E]
+        /// null = the batch must be rejected WHOLE (overlapping, degenerate, or
+        /// out of bounds) — never half-applied.
+        let expected: String?
+    }
+
+    func testPasteEditApplyGolden() throws {
+        let cases = try loadFixture("paste_edit_apply", as: [ApplyCase].self)
+        XCTAssertFalse(cases.isEmpty)
+        for c in cases {
+            let edits = c.edits.map {
+                PasteEditResolver.Replacement(start: $0.start, end: $0.end, text: $0.text)
+            }
+            let got = PasteEditResolver.apply(edits, to: Array(c.baseline))
+            XCTAssertEqual(got, c.expected, "paste_edit_apply[\(c.name)]")
+        }
+    }
+
+    /// Closing note 1 — the degenerate-span guard. An empty range replaces
+    /// nothing, is invisible to `overlaps`/`hasOverlap`, and would therefore
+    /// ship as an unvalidated INSERT. `resolve` must never produce one, `verify`
+    /// must never accept one, and `apply` must reject a batch containing one.
+    func testDegenerateSpansCannotExist() throws {
+        // 1. resolve: every honorable span replaces at least one character.
+        for c in try loadFixture("paste_edit_resolve", as: [ResolveCase].self) {
+            let span = PasteEditResolver.resolve(
+                needle: c.needle, anchoredAt: c.anchor, in: c.baseline,
+                contextBefore: c.contextBefore, contextAfter: c.contextAfter,
+                primaryLengthInNeedle: c.primaryLengthInNeedle)
+            if let span {
+                XCTAssertTrue(span.isWellFormed, "paste_edit_resolve[\(c.name)] degenerate span")
+            }
+        }
+        // Needles that trim to nothing can never resolve a span.
+        for needle in ["", " ", ".", "\u{201D})]}"] {
+            XCTAssertNil(PasteEditResolver.resolve(
+                needle: PasteEditResolver.trimGatedWord(needle), anchoredAt: 0,
+                in: "I met Jamy at noon.", contextBefore: "", contextAfter: ""),
+                "needle \"\(needle)\" must not resolve")
+        }
+        // 2. verify: a zero-length descriptor is refused even though its start
+        //    is in range and its (empty) text trivially "matches".
+        let baseline = Array("I met Jamy at noon.")
+        XCTAssertNil(PasteEditResolver.verify(start: 6, text: "", in: baseline))
+        XCTAssertNotNil(PasteEditResolver.verify(start: 6, text: "Jamy", in: baseline))
+        // Case-SENSITIVE: the descriptor carries the baseline's own casing, so a
+        // casing difference means the two sides hold different strings (D2a).
+        XCTAssertNil(PasteEditResolver.verify(start: 6, text: "jamy", in: baseline))
+        // 3. An empty range conflicts with nothing — which is exactly why it
+        //    must never reach the overlap validation as a real edit.
+        XCTAssertFalse(PasteEditResolver.overlaps(6..<6, 0..<19))
+        XCTAssertFalse(PasteEditResolver.hasOverlap([6..<6, 6..<6]))
+    }
+
+    /// A descriptor resolved against one baseline must not silently apply to a
+    /// different one — the consumer's verification is `text` vs the substring at
+    /// `start`, so a shifted baseline has to disagree.
+    func testDescriptorFailsClosedOnAShiftedBaseline() {
+        let published = "I met Jamy at noon."
+        guard let span = PasteEditResolver.resolve(
+            needle: "Jamy", anchoredAt: 6, in: published,
+            contextBefore: "I met ", contextAfter: " at noon.")
+        else { return XCTFail("expected a resolved span") }
+        let shifted = Array("Well, I met Jamy at noon.")
+        XCTAssertNotEqual(String(shifted[span.start..<span.end]), span.text)
+    }
 }

@@ -1,0 +1,103 @@
+[
+  {
+    "name": "strict-anchor",
+    "baseline": "I met Jamy at noon.",
+    "needle": "Jamy",
+    "anchor": 6,
+    "contextBefore": "I met ",
+    "contextAfter": " at noon.",
+    "expectStart": 6,
+    "expectText": "Jamy"
+  },
+  {
+    "name": "case-fold-carries-the-baseline-casing",
+    "baseline": "call JAMY now",
+    "needle": "Jamy",
+    "anchor": 5,
+    "contextBefore": "call ",
+    "contextAfter": " now",
+    "expectStart": 5,
+    "expectText": "JAMY"
+  },
+  {
+    "name": "drifted-anchor-unique-and-corroborated",
+    "baseline": "we told Jamy about the plan",
+    "needle": "Jamy",
+    "anchor": 5,
+    "contextBefore": "we told ",
+    "contextAfter": " about the",
+    "expectStart": 8,
+    "expectText": "Jamy"
+  },
+  {
+    "name": "ambiguous-two-in-window-fails-safe",
+    "baseline": "say Jamy and Jamy again",
+    "needle": "Jamy",
+    "anchor": 2,
+    "contextBefore": "say ",
+    "contextAfter": " and",
+    "expectStart": null,
+    "expectText": null
+  },
+  {
+    "name": "lone-match-without-shared-context-fails-safe",
+    "baseline": "the Jamy report",
+    "needle": "Jamy",
+    "anchor": 2,
+    "contextBefore": "hello world ",
+    "contextAfter": " goodbye friend",
+    "expectStart": null,
+    "expectText": null
+  },
+  {
+    "name": "anchor-past-the-end-fails-safe",
+    "baseline": "short",
+    "needle": "short",
+    "anchor": 99,
+    "contextBefore": "",
+    "contextAfter": "",
+    "expectStart": null,
+    "expectText": null
+  },
+  {
+    "name": "substring-of-a-longer-word-is-not-a-whole-word",
+    "baseline": "Jamyson is here",
+    "needle": "Jamy",
+    "anchor": 0,
+    "contextBefore": "",
+    "contextAfter": " is here",
+    "expectStart": null,
+    "expectText": null
+  },
+  {
+    "name": "trailing-punctuation-outside-the-span",
+    "baseline": "Hi Rama. Bye",
+    "needle": "Rama",
+    "anchor": 3,
+    "contextBefore": "Hi ",
+    "contextAfter": ". Bye",
+    "expectStart": 3,
+    "expectText": "Rama"
+  },
+  {
+    "name": "alternate-find-spans-the-following-word",
+    "baseline": "I use Claude code daily",
+    "needle": "Claude code",
+    "anchor": 6,
+    "contextBefore": "I use ",
+    "contextAfter": " daily",
+    "primaryLengthInNeedle": 6,
+    "expectStart": 6,
+    "expectText": "Claude code"
+  },
+  {
+    "name": "empty-needle-fails-safe",
+    "baseline": "anything at all",
+    "needle": "",
+    "anchor": 0,
+    "contextBefore": "",
+    "contextAfter": "",
+    "expectStart": null,
+    "expectText": null
+  }
+]

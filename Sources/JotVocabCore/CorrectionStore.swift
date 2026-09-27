@@ -126,6 +126,14 @@ public actor CorrectionStore {
 
     private let containerRoot: URL?
     private let diagnostics: DiagnosticsSink
+    /// **Learning guard (A3/R9).** True when an original is common by the
+    /// gate's own rule (`VocabularyGate.isCommonOriginal`: ANY word in the
+    /// active language's everyday-word set). A rule whose source is a common
+    /// word is never learned: confirmations, positive adjustments and "Always
+    /// replace" grants for it are refused (reverts are still recorded), and the
+    /// snapshot never hands the gate a positive or granted rule for one. nil ⇒
+    /// no guard (tests / legacy callers).
+    private let isCommonOriginal: (@Sendable (String) -> Bool)?
     private var terms: [String: Term] = [:]   // keyed by lowercased term
     private var loaded = false
     /// Set when `loadIfNeeded` found a file that EXISTS but failed to decode.
@@ -133,14 +141,36 @@ public actor CorrectionStore {
     /// a curated ledger it could not read (Q-3, real data-loss guard). Distinct
     /// from file-absent/empty, which is safe to start empty and persist.
     private var loadFailed = false
+    /// Set when `loadIfNeeded` found a file that exists but could not be READ.
+    /// The store still starts empty (legacy), but the one-time migration must
+    /// not count as done over a ledger it never saw.
+    private var loadUnreadable = false
 
     /// - Parameters:
     ///   - containerRoot: directory the `Vocabulary/` subtree lives under. `nil`
     ///     ⇒ purely in-memory (no load, no persist) — the test / no-persist mode.
     ///   - diagnostics: sink for the decode-failure guard (design seam 3).
-    public init(containerRoot: URL?, diagnostics: DiagnosticsSink = NoopDiagnosticsSink()) {
+    ///   - isCommonOriginal: the learning guard (see the property). The app
+    ///     passes the gate's own test over its active language's list.
+    public init(containerRoot: URL?, diagnostics: DiagnosticsSink = NoopDiagnosticsSink(),
+                isCommonOriginal: (@Sendable (String) -> Bool)? = nil) {
         self.containerRoot = containerRoot
         self.diagnostics = diagnostics
+        self.isCommonOriginal = isCommonOriginal
+    }
+
+    /// True when the learning guard refuses positive learning for `originalWord`.
+    public nonisolated func refusesLearning(originalWord: String) -> Bool {
+        isCommonOriginal?(CorrectionKey.normalize(originalWord)) ?? false
+    }
+
+    private func refuse(_ what: String, originalWord: String, term: String) -> Bool {
+        guard refusesLearning(originalWord: originalWord) else { return false }
+        diagnostics.record(
+            category: .vocabularyGate,
+            message: "learning refused (\(what)): common original",
+            metadata: ["original": CorrectionKey.normalize(originalWord), "term": term])
+        return true
     }
 
     // MARK: - Reads (for the gate + pane)
@@ -151,8 +181,14 @@ public actor CorrectionStore {
         loadIfNeeded()
         return terms.values.flatMap { term in
             term.mappings.map {
-                OverrideEntry(originalWord: $0.originalWord, term: $0.term,
-                              net: $0.net, alwaysReplace: $0.alwaysReplace)
+                // Defense in depth for rules learned before the guard existed
+                // (the migration below persists the same cleanup): a common
+                // original keeps its demotions but never a positive or granted
+                // rule.
+                let guarded = refusesLearning(originalWord: $0.originalWord)
+                return OverrideEntry(originalWord: $0.originalWord, term: $0.term,
+                                     net: guarded ? min($0.net, 0) : $0.net,
+                                     alwaysReplace: guarded ? false : $0.alwaysReplace)
             }
         }
     }
@@ -160,10 +196,15 @@ public actor CorrectionStore {
     /// V2-4: grant "always replace originalWord with term" — the explicit
     /// user consent that lets the gate auto-apply a common-word pair. Ends
     /// the forever-ask treadmill for a pair the owner has confirmed twice.
-    public func grantAlwaysReplace(originalWord: String, term: String) {
+    /// Returns false (and records nothing) when the learning guard refuses a
+    /// common original — a grant must never make an everyday word auto-apply.
+    @discardableResult
+    public func grantAlwaysReplace(originalWord: String, term: String) -> Bool {
         loadIfNeeded()
+        if refuse("always-replace", originalWord: originalWord, term: term) { return false }
         mutate(originalWord: originalWord, term: term) { $0.alwaysReplace = true }
         persist()
+        return true
     }
 
     /// True if the owner tapped "Stop asking" on a blocked `(originalWord → term)`
@@ -232,10 +273,15 @@ public actor CorrectionStore {
 
     /// Owner confirmed a correction `(originalWord → term)` should apply. Raises
     /// the mapping's net; once net clears the threshold the gate's override fires.
-    public func confirm(originalWord: String, term: String) {
+    /// Returns false (nothing recorded) when the learning guard refuses a
+    /// common original.
+    @discardableResult
+    public func confirm(originalWord: String, term: String) -> Bool {
         loadIfNeeded()
+        if refuse("confirm", originalWord: originalWord, term: term) { return false }
         mutate(originalWord: originalWord, term: term) { $0.confirmations += 1 }
         persist()
+        return true
     }
 
     /// Move the mapping's net by `delta` (a transcript's contribution to learning;
@@ -244,9 +290,14 @@ public actor CorrectionStore {
     /// STOPS auto-applying at net ≤ −1, common AND rare). A single transcript
     /// contributes at most ±1 per mapping (computed in `CorrectionProvenance`), so
     /// reviewing three "name→Jamy" occurrences can't inflate net to 3.
-    public func adjust(originalWord: String, term: String, by delta: Int) {
-        guard delta != 0 else { return }
+    ///
+    /// Returns false when a POSITIVE delta is refused by the learning guard (a
+    /// common original); negative deltas (reverts) are always recorded.
+    @discardableResult
+    public func adjust(originalWord: String, term: String, by delta: Int) -> Bool {
+        guard delta != 0 else { return true }
         loadIfNeeded()
+        if delta > 0, refuse("adjust", originalWord: originalWord, term: term) { return false }
         mutate(originalWord: originalWord, term: term) {
             if delta > 0 { $0.confirmations += delta } else { $0.reverts += -delta }
             // V2-4: one revert revokes an "always replace" grant — the user
@@ -254,6 +305,45 @@ public actor CorrectionStore {
             if delta < 0 { $0.alwaysReplace = false }
         }
         persist()
+        return true
+    }
+
+    /// **One-time migration (A3).** Drop every positive rule whose original the
+    /// learning guard calls common: confirmations and "Always replace" grants
+    /// are cleared, reverts / keeps are kept, and a mapping left with nothing is
+    /// removed. Returns how many mappings changed, or `nil` when the migration
+    /// did not really run — no guard, no on-disk ledger (in-memory store), or a
+    /// corrections.json that exists but could not be read/decoded — so the
+    /// caller must NOT mark it done.
+    @discardableResult
+    public func dropCommonOriginalRules() -> Int? {
+        loadIfNeeded()
+        guard isCommonOriginal != nil, fileURL != nil, !loadFailed, !loadUnreadable else { return nil }
+        var changed = 0
+        for (key, var term) in terms {
+            var kept: [Mapping] = []
+            for var m in term.mappings {
+                guard refusesLearning(originalWord: m.originalWord),
+                      m.confirmations > 0 || m.alwaysReplace else {
+                    kept.append(m)
+                    continue
+                }
+                changed += 1
+                m.confirmations = 0
+                m.alwaysReplace = false
+                if m.reverts > 0 || m.blockedKeeps > 0 { kept.append(m) }
+            }
+            term.mappings = kept
+            terms[key] = term
+        }
+        if changed > 0 {
+            persist()
+            diagnostics.record(
+                category: .vocabularyGate,
+                message: "dropped common-original learned rules",
+                metadata: ["count": "\(changed)"])
+        }
+        return changed
     }
 
     /// Owner reverted a correction `(originalWord → term)`. Raises reverts; at
@@ -332,7 +422,11 @@ public actor CorrectionStore {
         // file that EXISTS but fails to DECODE is the data-loss hazard (Q-3):
         // the old `try?`-blob path left `terms` empty and let the next persist()
         // write `{}` over the curated ledger. Distinguish the two here.
-        guard let data = try? Data(contentsOf: url), !data.isEmpty else { return }
+        guard let data = try? Data(contentsOf: url) else {
+            loadUnreadable = FileManager.default.fileExists(atPath: url.path)
+            return
+        }
+        guard !data.isEmpty else { return }
         do {
             terms = try JSONDecoder().decode([String: Term].self, from: data)
         } catch {

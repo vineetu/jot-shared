@@ -100,12 +100,23 @@ public enum VocabularyGate {
         // term (or an alias) — the split-word class ("sri ram" → "Sriram").
         // nil for ordinary proposals.
         public let shape: String?
+        /// What the proposal's claim rests on — `Evidence.label` ("acoustic",
+        /// "textual", "decodeBias"). nil only for proposals built by callers
+        /// that predate evidence typing. On the detection path `confidence` and
+        /// `margin` are 0 = NOT MEASURED (no decoder confidence, no comparable
+        /// margin); read `evidence` + `score` there, never those two.
+        public let evidence: String?
+        /// The evidence's own strength on its own scale: the CTC log-prob score
+        /// for "acoustic", the negated string distance for "textual". nil when
+        /// the evidence carries none.
+        public let score: Float?
 
         public init(originalWord: String, term: String, decision: String, outcome: String,
                     confidence: Float, margin: Float, unsure: Bool, askCandidate: Bool = false,
                     occurrenceIndex: Int,
                     originalStart: Int, originalLength: Int, publishedStart: Int,
-                    publishedLength: Int, alternates: [Alternate], shape: String?) {
+                    publishedLength: Int, alternates: [Alternate], shape: String?,
+                    evidence: String? = nil, score: Float? = nil) {
             self.originalWord = originalWord
             self.term = term
             self.decision = decision
@@ -121,6 +132,8 @@ public enum VocabularyGate {
             self.publishedLength = publishedLength
             self.alternates = alternates
             self.shape = shape
+            self.evidence = evidence
+            self.score = score
         }
     }
 
@@ -402,7 +415,11 @@ public enum VocabularyGate {
                     publishedStart: publishedStart,
                     publishedLength: item.publishedText.count,
                     alternates: alternates,
-                    shape: shape
+                    shape: shape,
+                    // The rescorer's proposals are CTC-rescored against real
+                    // TDT confidences — acoustic evidence with real values.
+                    evidence: Evidence.rescoreLabel,
+                    score: item.r.replacementScore
                 )
             )
             if item.d.pass { applied += 1 } else { blocked.append(String(originalTranscript[item.range])) }
@@ -420,22 +437,69 @@ public enum VocabularyGate {
     /// — no `RescoreOutput` (which needs decoder timings the Nemotron stream never
     /// produces) is involved. Engine-neutral value type (Foundation only), ported
     /// from the Mac gate as part of the superset merge.
+    /// **What a detection's claim rests on** (evidence-typed gate, design
+    /// `vocabulary-evidence-and-decode-bias.md` A1/R1/R2). The gate never
+    /// synthesizes a signal a detection doesn't carry: no stand-in decoder
+    /// confidence, no zero "margin", no position guessed from a time fraction.
+    public enum Evidence: Sendable, Equatable {
+        /// The decoder itself wrote the term under decode-time bias. Reserved
+        /// for the Nemotron bias hook (workstream B3); nothing emits it yet.
+        case decodeBias
+        /// A real acoustic score: the CTC keyword spotter's log-prob `score`,
+        /// plus the decoder's own per-word `confidence` when the engine measures
+        /// one (nil = not measured — NEVER a stand-in such as FluidAudio's
+        /// constant 1.0 Nemotron token confidence). Only this kind earns the §6
+        /// confidence-conditional plausibility ceiling.
+        case acoustic(score: Float, confidence: Float?)
+        /// A string-only match from the model-free corrector: `distance` is its
+        /// normalized edit distance (nil for legacy callers). Applies only
+        /// through the corrector's per-language distance table plus every gate
+        /// guard, and keeps the flat 0.45 ceiling (R1).
+        case textual(distance: Double?)
+
+        /// Stable persisted label (`Proposal.evidence` / `Record.evidence`).
+        public var label: String {
+            switch self {
+            case .decodeBias: return "decodeBias"
+            case .acoustic: return "acoustic"
+            case .textual: return "textual"
+            }
+        }
+
+        /// Label for the TDT rescore path (`apply`): CTC-rescored proposals with
+        /// real TDT confidences — acoustic evidence.
+        public static let rescoreLabel = "acoustic"
+    }
+
     public struct Detection: Sendable, Equatable {
         public let term: String           // the vocab term spotted in the audio
         public let aliases: [String]      // enriched aliases for the term (plausibility)
-        public let score: Float           // acoustic CTC score
+        /// The evidence's own strength, on the evidence's own scale: the CTC
+        /// log-prob for `.acoustic`, the negated string distance for `.textual`.
+        /// Logged and carried to the proposal; never compared across kinds.
+        public let score: Float
         public let startTime: TimeInterval
         public let endTime: TimeInterval
-        /// **§6 — `score` is an ACOUSTIC CTC score** on the spotter's scale, so
-        /// the confidence-conditional plausibility ceiling applies to this
-        /// detection. Set by the CTC keyword spotter and by nothing else.
-        ///
-        /// Defaults to **false** because `score` carries two incompatible
-        /// scales: the model-free corrector (§1) also emits `Detection`s, and
-        /// its detections must keep the flat 0.45 ceiling — its per-language
-        /// acceptance distances are its own knob.
-        public let acoustic: Bool
+        /// What this detection's claim rests on. Drives the §6 ceiling (acoustic
+        /// only) and is persisted on the proposal so asks can rank by it.
+        public let evidence: Evidence
+        /// An EXACT word window (indices into the transcript's whitespace-split
+        /// words) the detection was found at. The model-free corrector knows the
+        /// real window it matched, so it hands it over instead of encoding it as
+        /// a time fraction for the gate to re-derive. nil = place by time.
+        public let wordRange: Range<Int>?
 
+        /// **§6 — `score` is an ACOUSTIC CTC score** on the spotter's scale, so
+        /// the confidence-conditional plausibility ceiling applies. Derived from
+        /// `evidence`; kept so existing readers compile unchanged.
+        public var acoustic: Bool {
+            if case .acoustic = evidence { return true }
+            return false
+        }
+
+        /// Legacy shim (R2: the Detection API stays additive). `acoustic: true`
+        /// maps to `.acoustic(score:, confidence: nil)`; false to a textual
+        /// detection with no recorded distance — the pre-evidence meaning.
         public init(term: String, aliases: [String], score: Float,
                     startTime: TimeInterval, endTime: TimeInterval,
                     acoustic: Bool = false) {
@@ -444,9 +508,44 @@ public enum VocabularyGate {
             self.score = score
             self.startTime = startTime
             self.endTime = endTime
-            self.acoustic = acoustic
+            self.evidence = acoustic
+                ? .acoustic(score: score, confidence: nil)
+                : .textual(distance: nil)
+            self.wordRange = nil
+        }
+
+        /// Evidence-typed detection. `score` is derived from the evidence.
+        public init(term: String, aliases: [String], evidence: Evidence,
+                    startTime: TimeInterval, endTime: TimeInterval,
+                    wordRange: Range<Int>? = nil) {
+            self.term = term
+            self.aliases = aliases
+            switch evidence {
+            case .acoustic(let score, _): self.score = score
+            case .textual(let distance): self.score = Float(-(distance ?? 0))
+            case .decodeBias: self.score = 0
+            }
+            self.startTime = startTime
+            self.endTime = endTime
+            self.evidence = evidence
+            self.wordRange = wordRange
+        }
+
+        /// The decoder's measured per-word confidence, when the evidence has one.
+        var measuredConfidence: Float? {
+            if case .acoustic(_, let confidence) = evidence { return confidence }
+            return nil
         }
     }
+
+    /// When a detection is placed by audio time (`wordTimes`), the farthest a
+    /// window may sit from the detection's own time span. Past this the spotter
+    /// and the decoder are talking about different moments, and the detection
+    /// is dropped instead of guessed onto the nearest plausible word. Nemotron
+    /// emits at 80 ms encoder frames and the spotter at 40 ms, so honest pairs
+    /// overlap or sit within a frame or two; 1 s is generous slack for a term
+    /// the decoder smeared across a pause.
+    public static let maxTimedPlacementGap: TimeInterval = 1.0
 
     // MARK: - Confidence-conditional plausibility ceiling (§6)
 
@@ -492,13 +591,14 @@ public enum VocabularyGate {
     /// time over `totalAudioDuration` to a fractional index across the words. A
     /// term already present correctly is a no-op (identity skip below).
     ///
-    /// Decision: the SAME `decide(...)` the TDT path uses. With no decoder
-    /// confidence, `wordConfidence` is empty → `confidence == lowConfidence`, so
-    /// the 0.998-protector ceiling can't fire (correct: no confidence to protect),
+    /// Decision: the SAME `decide(...)` the TDT path uses, fed only what the
+    /// detection's `Evidence` actually measured. With no decoder confidence the
+    /// 0.998-protector ceiling can't fire (correct: no confidence to protect),
     /// while plausibility, the common-word brake, learned overrides, and the
-    /// ask-candidate flags all still run. `margin` is 0 (no comparable acoustic
-    /// margin; the spotter score is on a different scale) — which keeps the
-    /// earned-margin branch from mis-firing.
+    /// ask-candidate flags all still run. There is no margin (the spotter score
+    /// is on a different scale), so the earned-margin branch can't mis-fire.
+    /// The proposal records `confidence`/`margin` as 0 = not measured, plus the
+    /// evidence kind and its own score — no stand-in values.
     ///
     /// Reconciliation note (superset merge): this reuses the POST-OVERHAUL iOS
     /// `decide`/`plausible` (case-insensitive override match, NFC/whitespace
@@ -507,6 +607,15 @@ public enum VocabularyGate {
     /// The additive multi-candidate alternates / merge-shape / dedup machinery in
     /// `apply(...)` has no analogue here (the spotter yields one term per span),
     /// so detection proposals carry `alternates: []` and `shape: nil`.
+    ///
+    /// **Evidence-typed placement (2026-09-25).** Proportional position is the
+    /// legacy fallback only. A detection with a `wordRange` is placed on exactly
+    /// that window. When the caller passes `wordTimes` (one entry per
+    /// whitespace-split transcript word, from the decoder's own token timings),
+    /// a time-placed detection goes to the plausible window whose audio span is
+    /// nearest its own, and is DROPPED past `maxTimedPlacementGap` rather than
+    /// guessed. A `wordTimes` whose count disagrees with the transcript is
+    /// ignored (fail closed to the explicit-window / proportional rules).
     public static func applyFromDetections(
         originalTranscript: String,
         detections: [Detection],
@@ -514,7 +623,8 @@ public enum VocabularyGate {
         commonWords: CommonWordsProvider,
         commonWordsResource: String? = "common-words",
         overrides: [CorrectionStore.OverrideEntry] = [],
-        diagnostics: DiagnosticsSink = NoopDiagnosticsSink()
+        diagnostics: DiagnosticsSink = NoopDiagnosticsSink(),
+        wordTimes: [WordTime]? = nil
     ) -> Result {
         guard !detections.isEmpty, !originalTranscript.isEmpty else {
             return Result(text: originalTranscript, applied: 0, blocked: [], proposals: [])
@@ -612,12 +722,35 @@ public enum VocabularyGate {
         }
         var claimed = Set<Int>()
         var picks: [Pick] = []
+        // Real per-word audio spans, only when they describe THIS transcript.
+        let timed: [WordTime]? = {
+            guard let wordTimes, wordTimes.count == n else {
+                if let wordTimes {
+                    diagnostics.record(
+                        category: .vocabularyGate,
+                        message: "word-times ignored: \(wordTimes.count) times for \(n) words",
+                        metadata: [:])
+                }
+                return nil
+            }
+            return wordTimes
+        }()
 
         for det in detections {
             let mid: TimeInterval = (det.startTime + det.endTime) / 2
             let frac: Double = totalAudioDuration > 0
                 ? min(max(mid / totalAudioDuration, 0), 1)
                 : 0.5
+            // An explicit window must lie inside the transcript, or the
+            // detection describes some other text — drop it, never re-guess.
+            if let range = det.wordRange,
+               range.isEmpty || range.lowerBound < 0 || range.upperBound > n {
+                diagnostics.record(
+                    category: .vocabularyGate,
+                    message: "word-range out of bounds \(det.term)",
+                    metadata: ["range": "\(range)", "words": "\(n)"])
+                continue
+            }
 
             // §6 — an ACOUSTIC detection earns a wider string-distance budget in
             // proportion to how strongly it was heard; anything else keeps the
@@ -634,13 +767,30 @@ public enum VocabularyGate {
                 if count >= 1 { widths.insert(count) }
             }
 
-            // Selection: proportional-position distance among plausible
-            // candidates; on an EXACT tie the wider window wins. Ascending
-            // widths + the `>` tie-break below make that ordering explicit.
+            // Selection: position distance among plausible candidates; on an
+            // EXACT tie the wider window wins. Ascending widths + the `>`
+            // tie-break below make that ordering explicit. Position is, in
+            // order of preference: the detection's own explicit window, the
+            // audio-time gap to the decoder's word spans, or (legacy) the
+            // proportional index.
             var best: (wordRange: Range<Int>, distance: Double)?
-            for width in widths.sorted() where width <= n {
-                for lo in 0...(n - width) {
+            let candidateWidths: [Int] = det.wordRange.map { [$0.count] } ?? widths.sorted()
+            for width in candidateWidths where width <= n {
+                let starts: ClosedRange<Int> = det.wordRange.map { $0.lowerBound...$0.lowerBound }
+                    ?? 0...(n - width)
+                for lo in starts {
                     let hi = lo + width
+                    // Timed placement rejects any window more than
+                    // `maxTimedPlacementGap` from the detection. Test that
+                    // cheap bound FIRST: otherwise every detection pays a
+                    // string-distance check at every word of the transcript,
+                    // which is quadratic in dictation length (a 30-min
+                    // dictation spent minutes here). Same candidates survive.
+                    if det.wordRange == nil, let timed {
+                        let gap = max(0, max(timed[lo].start - det.endTime,
+                                             det.startTime - timed[hi - 1].end))
+                        guard gap <= Self.maxTimedPlacementGap else { continue }
+                    }
                     guard !(lo..<hi).contains(where: { claimed.contains($0) }) else { continue }
                     guard windowIsFusable(lo, hi) else { continue }
                     let windowText = (lo..<hi).map { words[$0].text }.joined(separator: " ")
@@ -655,8 +805,23 @@ public enum VocabularyGate {
                             continue
                         }
                     }
-                    let center = (Double(lo) + Double(hi)) / 2 / Double(n)
-                    let distance = abs(center - frac)
+                    let distance: Double
+                    if det.wordRange != nil {
+                        distance = 0
+                    } else if let timed {
+                        let windowStart = timed[lo].start
+                        let windowEnd = timed[hi - 1].end
+                        let gap = max(0, max(windowStart - det.endTime, det.startTime - windowEnd))
+                        guard gap <= Self.maxTimedPlacementGap else { continue }
+                        // Overlapping windows tie at gap 0; the nearer centre
+                        // breaks it (scaled well below one frame so it can never
+                        // outvote a real gap).
+                        let centreOffset = abs((windowStart + windowEnd) / 2 - mid)
+                        distance = gap + min(centreOffset, 1_000) * 1e-6
+                    } else {
+                        let center = (Double(lo) + Double(hi)) / 2 / Double(n)
+                        distance = abs(center - frac)
+                    }
                     let wins = best.map {
                         distance < $0.distance || (distance == $0.distance && width > $0.wordRange.count)
                     } ?? true
@@ -754,16 +919,21 @@ public enum VocabularyGate {
             } else if Self.normalize(originalWord) == Self.normalize(pick.detection.term) {
                 continue
             }
-            // Synthesize a neutral proposal so the SAME iOS `decide` runs: margin 0
-            // (replacementScore nil, originalScore 0), replacementWord = the term.
-            let synthetic = RescoreProposal(
+            // Run the SAME iOS `decide` over the detection. The request carries
+            // no margin (replacementScore nil — a spotter score is not a margin
+            // over the decoder's word) and only the confidence the evidence
+            // actually measured; unknown confidence leaves the 0.998-protector
+            // with nothing to protect, exactly as before, without pretending
+            // a value.
+            let request = RescoreProposal(
                 originalWord: originalWord, replacementWord: pick.detection.term,
                 shouldReplace: true, replacementScore: nil, originalScore: 0)
             var d = decide(
-                synthetic, originalWord: originalWord,
+                request, originalWord: originalWord,
                 wordConfidence: [:], overrides: overrides,
                 aliases: pick.detection.aliases, commonWords: commonWordSet,
-                ceiling: pick.ceiling)
+                ceiling: pick.ceiling,
+                measuredConfidence: pick.detection.measuredConfidence)
             // Force-blocks that live HERE and not in `decide` — `decide` is
             // pinned byte-for-byte by the shared `vocabulary_gate_decide`
             // fixtures, and both of these are measured properties of the
@@ -791,7 +961,11 @@ public enum VocabularyGate {
             diagnostics.record(
                 category: .vocabularyGate,
                 message: "gate(spot) \(originalWord) → \(pick.detection.term)",
-                metadata: ["decision": d.label, "score": String(format: "%.2f", pick.detection.score)])
+                metadata: [
+                    "decision": d.label,
+                    "evidence": pick.detection.evidence.label,
+                    "score": String(format: "%.2f", pick.detection.score),
+                ])
 
             result += originalTranscript[cursor..<pick.span.lowerBound]
             let publishedStart = result.count
@@ -809,8 +983,9 @@ public enum VocabularyGate {
                     term: pick.detection.term,
                     decision: d.label,
                     outcome: d.pass ? "applied" : "kept",
-                    confidence: d.confidence,
-                    margin: d.margin,
+                    // 0 = not measured on this path (see `Proposal.evidence`).
+                    confidence: pick.detection.measuredConfidence ?? 0,
+                    margin: 0,
                     unsure: d.unsure,
                     askCandidate: d.askCandidate,
                     occurrenceIndex: pick.wordRange.lowerBound,
@@ -819,7 +994,9 @@ public enum VocabularyGate {
                     publishedStart: publishedStart,
                     publishedLength: publishedText.count,
                     alternates: [],
-                    shape: nil
+                    shape: nil,
+                    evidence: pick.detection.evidence.label,
+                    score: pick.detection.score
                 )
             )
             if d.pass { applied += 1 } else { blocked.append(originalWord) }
@@ -1030,7 +1207,10 @@ public enum VocabularyGate {
         // same ceiling in here, or the correction vanishes with no proposal, no
         // review row and no log. Defaults to the flat 0.45, so the rescore path
         // and the `vocabulary_gate_decide` fixtures are untouched.
-        ceiling: Double = plausibilityCeiling
+        ceiling: Double = plausibilityCeiling,
+        // A confidence the caller's evidence MEASURED for this span (detection
+        // path). Takes precedence over the token-timing map; nil = unknown.
+        measuredConfidence: Float? = nil
     ) -> (pass: Bool, confidence: Float, margin: Float, label: String, unsure: Bool, askCandidate: Bool) {
         let margin = (r.replacementScore ?? r.originalScore) - r.originalScore
         // The EFFECTIVE span identity (aligned-narrowed / dedup-widened) when
@@ -1039,9 +1219,9 @@ public enum VocabularyGate {
         let base = normalize(originalWord ?? r.originalWord)
         let term = r.replacementWord ?? ""
         let baseWords = base.split(separator: " ").map(String.init)
-        let measured = baseWords.compactMap { wordConfidence[$0] }.min()
+        let measured = measuredConfidence ?? baseWords.compactMap { wordConfidence[$0] }.min()
         let confidence = measured ?? lowConfidence
-        let isCommon = baseWords.contains { commonWords.contains($0.lowercased()) }
+        let isCommon = isCommonOriginal(base, commonWords: commonWords)
         // Genuine acoustic uncertainty: a MEASURED confidence between "shaky" and
         // "sure". Unknown confidence (tokens missed the confidence map — common
         // for the OOV names this feature targets) is NOT unsure, so it doesn't
@@ -1427,6 +1607,18 @@ public enum VocabularyGate {
     }
 
     // MARK: - Helpers
+
+    /// **The gate's own common-word test**, exposed so learning (A3/R9) and asks
+    /// judge an original by exactly the rule the brake applies: the original is
+    /// common when ANY of its words is in the language's everyday-word set.
+    /// `original` is normalized the way the store keys it, so a stored mapping
+    /// key and a raw span give the same answer.
+    public static func isCommonOriginal(_ original: String, commonWords: Set<String>) -> Bool {
+        guard !commonWords.isEmpty else { return false }
+        return normalize(original)
+            .split(separator: " ")
+            .contains { commonWords.contains($0.lowercased()) }
+    }
 
     private static func normalize(_ s: String) -> String {
         // Diff-review fix: MUST be the same normalization the store keys use

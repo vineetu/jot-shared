@@ -51,12 +51,18 @@ public actor CorrectionProvenance {
         /// V2-3: structural shape ("merge" = split-word class). Optional for
         /// back-compat with payloads persisted before the field existed.
         public var shape: String?
+        /// `VocabularyGate.Proposal.evidence` ("acoustic" / "textual" /
+        /// "decodeBias"); nil on records written before evidence typing.
+        /// Optional so every existing payload decodes unchanged.
+        public var evidence: String?
+        /// The evidence's own score (`VocabularyGate.Proposal.score`).
+        public var score: Float?
 
         public init(originalWord: String, term: String, decision: String, outcome: String,
                     confidence: Float, margin: Float, unsure: Bool, occurrenceIndex: Int,
                     originalStart: Int, originalLength: Int, publishedStart: Int,
                     publishedLength: Int, alternates: [VocabularyGate.Alternate]? = nil,
-                    shape: String? = nil) {
+                    shape: String? = nil, evidence: String? = nil, score: Float? = nil) {
             self.originalWord = originalWord
             self.term = term
             self.decision = decision
@@ -71,6 +77,8 @@ public actor CorrectionProvenance {
             self.publishedLength = publishedLength
             self.alternates = alternates
             self.shape = shape
+            self.evidence = evidence
+            self.score = score
         }
 
         /// Stable per-occurrence identity key (verdict + mark lookup).
@@ -159,7 +167,7 @@ public actor CorrectionProvenance {
                 originalStart: $0.originalStart, originalLength: $0.originalLength,
                 publishedStart: $0.publishedStart, publishedLength: $0.publishedLength,
                 alternates: $0.alternates.isEmpty ? nil : $0.alternates,
-                shape: $0.shape)
+                shape: $0.shape, evidence: $0.evidence, score: $0.score)
         }
     }
 

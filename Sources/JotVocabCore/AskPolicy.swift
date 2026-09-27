@@ -42,11 +42,23 @@ public enum AskPolicy {
     ///     `granted` exclusion — both derived here, not passed separately).
     ///   - `keyboardSuppressed`: `CorrectionStore.keyboardSuppressedPairs()`.
     ///   - `mergeAsked`: `CorrectionStore.mergeAskedPairs()`.
+    ///   - `isCommonOriginal`: the app's ONE common-original predicate (the
+    ///     gate's `VocabularyGate.isCommonOriginal` over the active language's
+    ///     list — the same closure the store's learning guard uses). A KEPT
+    ///     record whose original it calls common is never asked — its only
+    ///     purpose would be teaching a rule the learning guard refuses (A3/R9).
+    ///     An APPLIED one stays askable: that ask is the undo for a change
+    ///     already in the text. Default ⇒ no filter (legacy).
+    ///
+    /// Ranking (A5): weakest evidence first — the ask exists to catch a wrong
+    /// apply, so a string-only (`textual`) change outranks an acoustic one —
+    /// then closest-to-automatic (`prior`) first, then transcript order.
     public static func select(
         unresolved: [CorrectionProvenance.Record],
         overrides: [CorrectionStore.OverrideEntry],
         keyboardSuppressed: Set<String>,
-        mergeAsked: Set<String>
+        mergeAsked: Set<String>,
+        isCommonOriginal: (String) -> Bool = { _ in false }
     ) -> [Selection] {
         func pairKey(_ r: CorrectionProvenance.Record) -> String {
             CorrectionKey.pairKey(originalWord: r.originalWord, term: r.term)
@@ -89,6 +101,9 @@ public enum AskPolicy {
         func worthAsking(_ r: CorrectionProvenance.Record) -> Bool {
             if keyboardSuppressed.contains(pairKey(r)) { return false }
             if granted(r) { return false }
+            if r.outcome != "applied", isCommonOriginal(r.originalWord) {
+                return false
+            }
             if r.shape == "merge", r.outcome == "kept" {
                 return mergeTeachEligible(r)
             }
@@ -96,7 +111,14 @@ public enum AskPolicy {
         }
 
         let candidates = unresolved.filter(worthAsking)
-        let ranked = candidates.sorted { prior($0) > prior($1) }
+        // Stable: equal keys keep transcript order.
+        let ranked = candidates.enumerated().sorted { a, b in
+            let ea = evidenceRank(a.element.evidence), eb = evidenceRank(b.element.evidence)
+            if ea != eb { return ea < eb }
+            let pa = prior(a.element), pb = prior(b.element)
+            if pa != pb { return pa > pb }
+            return a.offset < b.offset
+        }.map(\.element)
         var selected = Array(ranked.prefix(maxAsks))
         // Mixed-payload rules:
         // (a) pair-dedupe merge teach asks — two occurrences of "sri ram" in one
@@ -118,6 +140,19 @@ public enum AskPolicy {
                 isMergeTeach: mergeTeachEligible(r),
                 altTerm: r.alternates?.first?.term,
                 altFind: r.alternates?.first?.find)
+        }
+    }
+
+    /// Ask rank for a proposal's evidence label — lower asks first. A string-only
+    /// match is the likeliest wrong apply, then an acoustic one; a change the
+    /// decoder itself made under bias is the least likely. Unknown (records
+    /// written before evidence typing) ranks with acoustic, so legacy ordering
+    /// is purely prior-driven as before.
+    public static func evidenceRank(_ evidence: String?) -> Int {
+        switch evidence {
+        case "textual": return 0
+        case "decodeBias": return 2
+        default: return 1
         }
     }
 }

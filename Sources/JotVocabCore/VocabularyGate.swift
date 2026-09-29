@@ -1558,7 +1558,9 @@ public enum VocabularyGate {
     /// 0.50, name→jamy 0.50 (all block).
     public static let plausibilityCeiling: Double = 0.45
 
-    private static func plausible(
+    /// Internal, not private: the edit learner (`EditLearner`) admits only
+    /// sound-alike substitutions by this exact test.
+    static func plausible(
         original: String, term: String, aliases: [String],
         ceiling: Double = plausibilityCeiling
     ) -> Bool {

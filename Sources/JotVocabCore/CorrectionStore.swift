@@ -50,21 +50,53 @@ public actor CorrectionStore {
         /// explicitly, on-screen). REVOKED automatically by any negative
         /// learning event (an applied-revert) — one revert demotes.
         public var alwaysReplace: Bool = false
+        /// Learn-from-edits counters (design `vocabulary-learn-from-edits`),
+        /// written ONLY by `recordEdit` — a hand edit in the transcript, or an
+        /// explicit "keep original" tap. Separate from `confirmations`/`reverts`
+        /// on purpose: `confirm` refuses common originals and a revert can lock a
+        /// common pair at net −1, while an edit of "cloud" → "Claude" must count.
+        /// Edits toward the term.
+        public var editsToward: Int = 0
+        /// Edits back to the original, and explicit "keep original" taps.
+        public var editsAway: Int = 0
+        /// Toward-edits in a row since the last away-edit (D6 arming).
+        public var editStreak: Int = 0
+        /// A toward-edit whose original the MODEL wrote (not AI cleanup, D11) —
+        /// only such pairs raise decode-time strength.
+        public var editHeard: Bool = false
         public var net: Int { confirmations - reverts }
+
+        /// Edits say the user means the term here (toward outweighs away).
+        public var editsFavorTerm: Bool { editsToward > editsAway }
+
+        /// D6: the common-original text rule armed by edits alone — two toward
+        /// edits in a row since the last away edit. `alwaysReplace` is the arm
+        /// itself (cleared by any away edit); requiring the streak too keeps a
+        /// legacy common grant from passing as edit-armed.
+        public var isEditArmed: Bool {
+            alwaysReplace && editStreak >= CorrectionStore.commonEditArmStreak
+        }
 
         public init(originalWord: String, term: String,
                     confirmations: Int = 0, reverts: Int = 0, blockedKeeps: Int = 0,
-                    alwaysReplace: Bool = false) {
+                    alwaysReplace: Bool = false,
+                    editsToward: Int = 0, editsAway: Int = 0, editStreak: Int = 0,
+                    editHeard: Bool = false) {
             self.originalWord = originalWord
             self.term = term
             self.confirmations = confirmations
             self.reverts = reverts
             self.blockedKeeps = blockedKeeps
             self.alwaysReplace = alwaysReplace
+            self.editsToward = editsToward
+            self.editsAway = editsAway
+            self.editStreak = editStreak
+            self.editHeard = editHeard
         }
 
         enum CodingKeys: String, CodingKey {
             case originalWord, term, confirmations, reverts, blockedKeeps, alwaysReplace
+            case editsToward, editsAway, editStreak, editHeard
         }
 
         // Custom decode so an existing corrections.json (no `blockedKeeps` /
@@ -81,8 +113,43 @@ public actor CorrectionStore {
             reverts = try c.decodeIfPresent(Int.self, forKey: .reverts) ?? 0
             blockedKeeps = try c.decodeIfPresent(Int.self, forKey: .blockedKeeps) ?? 0
             alwaysReplace = try c.decodeIfPresent(Bool.self, forKey: .alwaysReplace) ?? false
+            editsToward = try c.decodeIfPresent(Int.self, forKey: .editsToward) ?? 0
+            editsAway = try c.decodeIfPresent(Int.self, forKey: .editsAway) ?? 0
+            editStreak = try c.decodeIfPresent(Int.self, forKey: .editStreak) ?? 0
+            editHeard = try c.decodeIfPresent(Bool.self, forKey: .editHeard) ?? false
         }
     }
+
+    /// Direction of one learn-from-edits signal.
+    public enum EditDirection: Sendable, Equatable {
+        /// The user edited the original into the term.
+        case toward
+        /// The user edited the term back, or explicitly kept the original.
+        case away
+    }
+
+    /// One learned `(original → term)` pair for pair-targeted decode bias: the
+    /// decoder pushes toward `term` only where it is spelling `original`.
+    public struct LearnedPair: Sendable, Equatable, Hashable {
+        public let original: String
+        public let term: String
+
+        public init(original: String, term: String) {
+            self.original = original
+            self.term = term
+        }
+    }
+
+    /// Decode-time bias weight for a vocabulary term nobody has corrected (the
+    /// Nemotron Multilingual default, chosen on LibriSpeech).
+    public static let baseBiasStrength: Float = 3.5
+    /// Whole-word strength of a term the user has corrected toward (D5: one
+    /// edit is enough). Measured on LibriSpeech test-clean: 5 is
+    /// indistinguishable from control; 6 already repeats the term.
+    public static let learnedBiasStrength: Float = 5.0
+    /// Toward-edits in a row (since the last away edit) that arm a common
+    /// original's text rule for decoders without bias (D6).
+    public static let commonEditArmStreak = 2
 
     /// Threshold of repeated "keep original" rejections on a BLOCKED pair after
     /// which the keyboard stops re-asking it (transcript review still surfaces it).
@@ -186,6 +253,13 @@ public actor CorrectionStore {
                 // original keeps its demotions but never a positive or granted
                 // rule.
                 let guarded = refusesLearning(originalWord: $0.originalWord)
+                // D6: the one common arm is the edit-earned one. It reports net
+                // 0 so an older revert (net ≤ −1 blocks before the grant is
+                // read) can't cancel two later deliberate edits.
+                if guarded, $0.isEditArmed {
+                    return OverrideEntry(originalWord: $0.originalWord, term: $0.term,
+                                         net: 0, alwaysReplace: true)
+                }
                 return OverrideEntry(originalWord: $0.originalWord, term: $0.term,
                                      net: guarded ? min($0.net, 0) : $0.net,
                                      alwaysReplace: guarded ? false : $0.alwaysReplace)
@@ -323,15 +397,19 @@ public actor CorrectionStore {
         for (key, var term) in terms {
             var kept: [Mapping] = []
             for var m in term.mappings {
+                // An edit-armed grant is the designed common arm (D6), not a
+                // pre-guard leftover — the migration leaves it alone.
                 guard refusesLearning(originalWord: m.originalWord),
-                      m.confirmations > 0 || m.alwaysReplace else {
+                      m.confirmations > 0 || (m.alwaysReplace && !m.isEditArmed) else {
                     kept.append(m)
                     continue
                 }
                 changed += 1
                 m.confirmations = 0
-                m.alwaysReplace = false
-                if m.reverts > 0 || m.blockedKeeps > 0 { kept.append(m) }
+                if !m.isEditArmed { m.alwaysReplace = false }
+                if m.reverts > 0 || m.blockedKeeps > 0 || m.editsToward > 0 || m.editsAway > 0 {
+                    kept.append(m)
+                }
             }
             term.mappings = kept
             terms[key] = term
@@ -385,6 +463,109 @@ public actor CorrectionStore {
         loadIfNeeded()
         mutate(originalWord: originalWord, term: term) { $0.blockedKeeps = max(0, $0.blockedKeeps - 1) }
         persist()
+    }
+
+    // MARK: - Learn from edits
+
+    /// Record one edit-session lesson for `(originalWord → term)`. NOT guarded
+    /// by the learning guard: common originals ("cloud") count here, and the
+    /// gate's own safety is untouched — `snapshot()` still clamps common nets,
+    /// and the only common arm is the edit-earned one below. `suppressedBlocks`
+    /// (ask-only) is irrelevant to this path (D7).
+    ///   - toward: `editsToward += 1`, streak up; `heardByModel` marks the pair
+    ///     as a real mishearing (D11). A common original arms its text rule at
+    ///     `commonEditArmStreak` toward edits in a row (D6).
+    ///   - away: `editsAway += 1`, streak reset, any grant cleared — two later
+    ///     toward edits re-arm it.
+    public func recordEdit(originalWord: String, term: String, direction: EditDirection,
+                           heardByModel: Bool = false) {
+        loadIfNeeded()
+        let common = refusesLearning(originalWord: originalWord)
+        mutate(originalWord: originalWord, term: term) { m in
+            switch direction {
+            case .toward:
+                m.editsToward += 1
+                m.editStreak += 1
+                if heardByModel { m.editHeard = true }
+                if common, m.editStreak >= Self.commonEditArmStreak {
+                    m.alwaysReplace = true
+                }
+            case .away:
+                m.editsAway += 1
+                m.editStreak = 0
+                m.alwaysReplace = false
+            }
+        }
+        persist()
+    }
+
+    /// Reverse of one `recordEdit` (an Undo of an explicit "keep original" in
+    /// the review pane). Counters floor at 0; a cleared grant is not restored —
+    /// the next toward-edit re-earns it.
+    public func retractEdit(originalWord: String, term: String, direction: EditDirection) {
+        loadIfNeeded()
+        let key = term.lowercased()
+        let ow = normalize(originalWord)
+        guard var t = terms[key], let i = t.mappings.firstIndex(where: { $0.originalWord == ow })
+        else { return }
+        switch direction {
+        case .toward:
+            t.mappings[i].editsToward = max(0, t.mappings[i].editsToward - 1)
+            t.mappings[i].editStreak = max(0, t.mappings[i].editStreak - 1)
+        case .away:
+            t.mappings[i].editsAway = max(0, t.mappings[i].editsAway - 1)
+        }
+        terms[key] = t
+        persist()
+    }
+
+    /// Decode-time strength for `term`, derived from the edit counters (no
+    /// stored scalar that can drift): the learned strength when any of its
+    /// model-heard pairs has more edits toward than away, the base otherwise.
+    /// Confirm/revert verdicts never feed this, so a user who never edits sees
+    /// no change.
+    public func learnedStrength(term: String) -> Float {
+        loadIfNeeded()
+        return strength(of: terms[term.lowercased()])
+    }
+
+    /// Every term whose strength is above the base, keyed by lowercased term —
+    /// one read per dictation instead of one per term.
+    public func learnedStrengths() -> [String: Float] {
+        loadIfNeeded()
+        var out: [String: Float] = [:]
+        for (key, term) in terms {
+            let s = strength(of: term)
+            if s > Self.baseBiasStrength { out[key] = s }
+        }
+        return out
+    }
+
+    /// Active learned pairs for pair-targeted decode bias: model-heard, with
+    /// more edits toward the term than away. Sorted for a stable comparison.
+    public func learnedPairs() -> [LearnedPair] {
+        loadIfNeeded()
+        return terms.values
+            .flatMap { $0.mappings }
+            .filter { $0.editHeard && $0.editsFavorTerm }
+            .map { LearnedPair(original: $0.originalWord, term: $0.term) }
+            .sorted { ($0.term.lowercased(), $0.original) < ($1.term.lowercased(), $1.original) }
+    }
+
+    /// Re-case every stored mapping of `term` to the user's casing (D10). The
+    /// store keys terms lowercased, so this only rewrites the display casing.
+    public func recase(term: String) {
+        loadIfNeeded()
+        let key = term.lowercased()
+        guard var t = terms[key], t.mappings.contains(where: { $0.term != term }) else { return }
+        for i in t.mappings.indices { t.mappings[i].term = term }
+        terms[key] = t
+        persist()
+    }
+
+    private func strength(of term: Term?) -> Float {
+        let learned = term?.mappings.contains { $0.editHeard && $0.editsFavorTerm } ?? false
+        return learned ? Self.learnedBiasStrength : Self.baseBiasStrength
     }
 
     // MARK: - Internals

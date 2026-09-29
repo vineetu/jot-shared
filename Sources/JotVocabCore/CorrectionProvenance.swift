@@ -108,13 +108,23 @@ public actor CorrectionProvenance {
         /// the reconcile is state-based (fingerprint), not event-based. nil on
         /// payloads written before this field existed (adopted on first read).
         public var anchoredText: String?
+        /// Record keys whose verdict was set by a transcript EDIT (learn from
+        /// edits), not a pick — so an Undo in the pane can also retract the
+        /// edit's count. nil on payloads written before this field existed.
+        public var editClosedKeys: [String]?
 
         public init(records: [Record] = [], verdicts: [String: String] = [:],
-                    contributions: [String: Int] = [:], anchoredText: String? = nil) {
+                    contributions: [String: Int] = [:], anchoredText: String? = nil,
+                    editClosedKeys: [String]? = nil) {
             self.records = records
             self.verdicts = verdicts
             self.contributions = contributions
             self.anchoredText = anchoredText
+            self.editClosedKeys = editClosedKeys
+        }
+
+        public func isEditClosed(_ record: Record) -> Bool {
+            editClosedKeys?.contains(record.key) ?? false
         }
     }
 
@@ -142,6 +152,12 @@ public actor CorrectionProvenance {
     /// text BEFORE it's saved, and the first `reconciledPayload` absorbs that
     /// drift exactly by diffing from this baseline.
     private var pendingAnchorText: String = ""
+    /// Live-pill verdicts given before this dictation's records were committed
+    /// (`noteLiveVerdict`), applied at `commit`.
+    private var pendingLiveVerdicts: [(originalWord: String, term: String, verdict: String)] = []
+    /// The transcript the last `commit` wrote, for a live verdict that lands
+    /// after the commit. Cleared with the pending slot.
+    private var lastCommittedID: UUID?
 
     /// - Parameters:
     ///   - containerRoot: directory the `Vocabulary/provenance/` subtree lives
@@ -178,6 +194,36 @@ public actor CorrectionProvenance {
     public func clearPending() {
         pending = []
         pendingAnchorText = ""
+        pendingLiveVerdicts = []
+        lastCommittedID = nil
+    }
+
+    /// A verdict the live pill already acted on (its own store write done), so
+    /// the review pane shows that occurrence as answered and can't count it
+    /// again. Lands on the first still-open record of the pair — held until
+    /// `commit` if the records aren't saved yet. The store deltas `setVerdict`
+    /// would return are NOT reapplied (the pill already wrote them); only the
+    /// contribution ledger is brought in line, so an Undo reverses exactly them.
+    public func noteLiveVerdict(originalWord: String, term: String, verdict: String) {
+        let ow = CorrectionKey.normalize(originalWord)
+        if pending.contains(where: {
+            CorrectionKey.normalize($0.originalWord) == ow && $0.term.lowercased() == term.lowercased()
+        }) {
+            pendingLiveVerdicts.append((originalWord, term, verdict))
+            return
+        }
+        guard let id = lastCommittedID else { return }
+        applyLiveVerdict(transcriptID: id, originalWord: originalWord, term: term, verdict: verdict)
+    }
+
+    private func applyLiveVerdict(transcriptID: UUID, originalWord: String, term: String, verdict: String) {
+        let p = payload(transcriptID: transcriptID)
+        let ow = CorrectionKey.normalize(originalWord)
+        guard let record = p.records.first(where: {
+            p.verdicts[$0.key] == nil
+                && CorrectionKey.normalize($0.originalWord) == ow && $0.term.lowercased() == term.lowercased()
+        }) else { return }
+        _ = setVerdict(transcriptID: transcriptID, record: record, verdict: verdict)
     }
 
     /// Persist the pending records under the saved transcript id (fresh verdicts).
@@ -188,10 +234,19 @@ public actor CorrectionProvenance {
     public func commit(transcriptID: UUID) {
         let records = pending
         let anchorText = pendingAnchorText
+        let liveVerdicts = pendingLiveVerdicts
         pending = []
         pendingAnchorText = ""
+        pendingLiveVerdicts = []
         guard !records.isEmpty, let url = fileURL(transcriptID) else {
             return
+        }
+        lastCommittedID = transcriptID
+        defer {
+            for v in liveVerdicts {
+                applyLiveVerdict(transcriptID: transcriptID, originalWord: v.originalWord,
+                                 term: v.term, verdict: v.verdict)
+            }
         }
         // Commit is once-per-fresh-id, but be defensive: if a payload already
         // exists for this id (a re-commit / retry), PRESERVE the owner's verdicts
@@ -200,7 +255,8 @@ public actor CorrectionProvenance {
         let existing = payload(transcriptID: transcriptID)
         let payload = Payload(
             records: records, verdicts: existing.verdicts,
-            contributions: existing.contributions, anchoredText: anchorText)
+            contributions: existing.contributions, anchoredText: anchorText,
+            editClosedKeys: existing.editClosedKeys)
         var wrote = false
         if let data = try? JSONEncoder().encode(payload) {
             do { try data.write(to: url, options: .atomic); wrote = true } catch {}
@@ -347,9 +403,16 @@ public actor CorrectionProvenance {
     /// gives 0 — and an "alt0" pick moves the ALTERNATE's mapping through the
     /// same clamp (V2-2; may return one delta per affected mapping, e.g. a
     /// switch from "term" to "alt0" moves two).
-    public func setVerdict(transcriptID: UUID, record: Record, verdict: String) -> [MappingDelta] {
+    ///
+    /// `fromEdit` marks a verdict set by a transcript edit (learn from edits),
+    /// so the pane's Undo knows to retract the edit's count too.
+    public func setVerdict(transcriptID: UUID, record: Record, verdict: String,
+                           fromEdit: Bool = false) -> [MappingDelta] {
         var p = payload(transcriptID: transcriptID)
         p.verdicts[record.key] = verdict
+        var closed = (p.editClosedKeys ?? []).filter { $0 != record.key }
+        if fromEdit { closed.append(record.key) }
+        p.editClosedKeys = closed.isEmpty ? nil : closed
         return finalize(&p, transcriptID: transcriptID, record: record)
     }
 
@@ -358,6 +421,8 @@ public actor CorrectionProvenance {
     public func clearVerdict(transcriptID: UUID, record: Record) -> [MappingDelta] {
         var p = payload(transcriptID: transcriptID)
         p.verdicts.removeValue(forKey: record.key)
+        let closed = (p.editClosedKeys ?? []).filter { $0 != record.key }
+        p.editClosedKeys = closed.isEmpty ? nil : closed
         return finalize(&p, transcriptID: transcriptID, record: record)
     }
 

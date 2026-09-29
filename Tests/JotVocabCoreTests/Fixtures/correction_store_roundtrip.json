@@ -3,8 +3,8 @@
     "name": "mac-subset-decodes-superset-adopts",
     "initialJSON": "{\"jamy\":{\"mappings\":[{\"originalWord\":\"jamie\",\"term\":\"Jamy\",\"confirmations\":1,\"reverts\":0,\"blockedKeeps\":1}],\"suppressedBlocks\":[]}}",
     "operations": [{"op": "confirm", "originalWord": "jamie", "term": "Jamy"}],
-    "expectSnapshot": [{"originalWord": "jamie", "term": "Jamy", "net": 2, "alwaysReplace": false}],
-    "expectFileContains": ["alwaysReplace"]
+    "expectSnapshot": [{"originalWord": "jamie", "term": "Jamy", "net": 2}],
+    "expectFileContains": ["pairPaused"]
   },
   {
     "name": "net-math-confirm-confirm-revert",
@@ -14,18 +14,15 @@
       {"op": "confirm", "originalWord": "aaa", "term": "Aaa"},
       {"op": "revert", "originalWord": "aaa", "term": "Aaa"}
     ],
-    "expectSnapshot": [{"originalWord": "aaa", "term": "Aaa", "net": 1, "alwaysReplace": false}]
+    "expectSnapshot": [{"originalWord": "aaa", "term": "Aaa", "net": 1}]
   },
   {
-    "name": "always-replace-one-revert-revokes",
-    "initialJSON": "{}",
+    "name": "retired-grant-key-decodes-and-is-ignored",
+    "initialJSON": "{\"claude\":{\"mappings\":[{\"originalWord\":\"cloud\",\"term\":\"Claude\",\"confirmations\":2,\"alwaysReplace\":true,\"editStreak\":2}],\"suppressedBlocks\":[]}}",
     "operations": [
-      {"op": "confirm", "originalWord": "cloud", "term": "Claude"},
-      {"op": "confirm", "originalWord": "cloud", "term": "Claude"},
-      {"op": "grantAlwaysReplace", "originalWord": "cloud", "term": "Claude"},
       {"op": "adjust", "originalWord": "cloud", "term": "Claude", "delta": -1}
     ],
-    "expectSnapshot": [{"originalWord": "cloud", "term": "Claude", "net": 1, "alwaysReplace": false}]
+    "expectSnapshot": [{"originalWord": "cloud", "term": "Claude", "net": 1}]
   },
   {
     "name": "blocked-keeps-threshold-suppresses",
@@ -34,7 +31,7 @@
       {"op": "noteBlockedKeep", "originalWord": "okay", "term": "Okta"},
       {"op": "noteBlockedKeep", "originalWord": "okay", "term": "Okta"}
     ],
-    "expectSnapshot": [{"originalWord": "okay", "term": "Okta", "net": 0, "alwaysReplace": false}],
+    "expectSnapshot": [{"originalWord": "okay", "term": "Okta", "net": 0}],
     "expectKeyboardSuppressed": ["okay|okta"]
   },
   {
@@ -43,7 +40,7 @@
     "operations": [
       {"op": "noteBlockedKeep", "originalWord": "okay", "term": "Okta"}
     ],
-    "expectSnapshot": [{"originalWord": "okay", "term": "Okta", "net": 0, "alwaysReplace": false}],
+    "expectSnapshot": [{"originalWord": "okay", "term": "Okta", "net": 0}],
     "expectKeyboardSuppressed": []
   },
   {

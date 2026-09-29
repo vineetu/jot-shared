@@ -34,7 +34,7 @@ public actor CorrectionProvenance {
     public struct Record: Codable, Sendable, Equatable {
         public let originalWord: String     // what TDT wrote ("Jamie")
         public let term: String             // the vocab term ("Jamy")
-        public let decision: String         // "APPLY" | "BLOCK" | "OVERRIDE"
+        public let decision: String         // "APPLY" | "BLOCK" ("OVERRIDE" only in old records)
         public let outcome: String          // "applied" | "kept"
         public let confidence: Float
         public let margin: Float
@@ -112,19 +112,50 @@ public actor CorrectionProvenance {
         /// edits), not a pick — so an Undo in the pane can also retract the
         /// edit's count. nil on payloads written before this field existed.
         public var editClosedKeys: [String]?
+        /// record.key → verdict → what that verdict's `VocabularyLearning.apply`
+        /// did, so the pane's Undo reverses exactly that (Revision 2 review #5).
+        /// Kept per verdict: switching "term" → "original" keeps the term
+        /// pick's receipt for the Undo too. nil on payloads written before this
+        /// field existed.
+        public var receipts: [String: [String: VocabularyLearning.Receipt]]?
 
         public init(records: [Record] = [], verdicts: [String: String] = [:],
                     contributions: [String: Int] = [:], anchoredText: String? = nil,
-                    editClosedKeys: [String]? = nil) {
+                    editClosedKeys: [String]? = nil,
+                    receipts: [String: [String: VocabularyLearning.Receipt]]? = nil) {
             self.records = records
             self.verdicts = verdicts
             self.contributions = contributions
             self.anchoredText = anchoredText
             self.editClosedKeys = editClosedKeys
+            self.receipts = receipts
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case records, verdicts, contributions, anchoredText, editClosedKeys, receipts
+        }
+
+        // Hand-written so a payload missing newer keys (or holding a receipt
+        // shape this build can't read) still loads: a throw here would drop the
+        // whole transcript's review records.
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            records = try c.decodeIfPresent([Record].self, forKey: .records) ?? []
+            verdicts = try c.decodeIfPresent([String: String].self, forKey: .verdicts) ?? [:]
+            contributions = try c.decodeIfPresent([String: Int].self, forKey: .contributions) ?? [:]
+            anchoredText = try c.decodeIfPresent(String.self, forKey: .anchoredText)
+            editClosedKeys = try c.decodeIfPresent([String].self, forKey: .editClosedKeys)
+            receipts = try? c.decodeIfPresent(
+                [String: [String: VocabularyLearning.Receipt]].self, forKey: .receipts)
         }
 
         public func isEditClosed(_ record: Record) -> Bool {
             editClosedKeys?.contains(record.key) ?? false
+        }
+
+        /// verdict → receipt, for `record`.
+        public func receipts(for record: Record) -> [String: VocabularyLearning.Receipt] {
+            receipts?[record.key] ?? [:]
         }
     }
 
@@ -154,7 +185,8 @@ public actor CorrectionProvenance {
     private var pendingAnchorText: String = ""
     /// Live-pill verdicts given before this dictation's records were committed
     /// (`noteLiveVerdict`), applied at `commit`.
-    private var pendingLiveVerdicts: [(originalWord: String, term: String, verdict: String)] = []
+    private var pendingLiveVerdicts: [(originalWord: String, term: String, verdict: String,
+                                       receipt: VocabularyLearning.Receipt?)] = []
     /// The transcript the last `commit` wrote, for a live verdict that lands
     /// after the commit. Cleared with the pending slot.
     private var lastCommittedID: UUID?
@@ -204,26 +236,29 @@ public actor CorrectionProvenance {
     /// `commit` if the records aren't saved yet. The store deltas `setVerdict`
     /// would return are NOT reapplied (the pill already wrote them); only the
     /// contribution ledger is brought in line, so an Undo reverses exactly them.
-    public func noteLiveVerdict(originalWord: String, term: String, verdict: String) {
+    public func noteLiveVerdict(originalWord: String, term: String, verdict: String,
+                                receipt: VocabularyLearning.Receipt? = nil) {
         let ow = CorrectionKey.normalize(originalWord)
         if pending.contains(where: {
             CorrectionKey.normalize($0.originalWord) == ow && $0.term.lowercased() == term.lowercased()
         }) {
-            pendingLiveVerdicts.append((originalWord, term, verdict))
+            pendingLiveVerdicts.append((originalWord, term, verdict, receipt))
             return
         }
         guard let id = lastCommittedID else { return }
-        applyLiveVerdict(transcriptID: id, originalWord: originalWord, term: term, verdict: verdict)
+        applyLiveVerdict(transcriptID: id, originalWord: originalWord, term: term, verdict: verdict,
+                         receipt: receipt)
     }
 
-    private func applyLiveVerdict(transcriptID: UUID, originalWord: String, term: String, verdict: String) {
+    private func applyLiveVerdict(transcriptID: UUID, originalWord: String, term: String, verdict: String,
+                                  receipt: VocabularyLearning.Receipt?) {
         let p = payload(transcriptID: transcriptID)
         let ow = CorrectionKey.normalize(originalWord)
         guard let record = p.records.first(where: {
             p.verdicts[$0.key] == nil
                 && CorrectionKey.normalize($0.originalWord) == ow && $0.term.lowercased() == term.lowercased()
         }) else { return }
-        _ = setVerdict(transcriptID: transcriptID, record: record, verdict: verdict)
+        _ = setVerdict(transcriptID: transcriptID, record: record, verdict: verdict, receipt: receipt)
     }
 
     /// Persist the pending records under the saved transcript id (fresh verdicts).
@@ -245,7 +280,7 @@ public actor CorrectionProvenance {
         defer {
             for v in liveVerdicts {
                 applyLiveVerdict(transcriptID: transcriptID, originalWord: v.originalWord,
-                                 term: v.term, verdict: v.verdict)
+                                 term: v.term, verdict: v.verdict, receipt: v.receipt)
             }
         }
         // Commit is once-per-fresh-id, but be defensive: if a payload already
@@ -256,7 +291,7 @@ public actor CorrectionProvenance {
         let payload = Payload(
             records: records, verdicts: existing.verdicts,
             contributions: existing.contributions, anchoredText: anchorText,
-            editClosedKeys: existing.editClosedKeys)
+            editClosedKeys: existing.editClosedKeys, receipts: existing.receipts)
         var wrote = false
         if let data = try? JSONEncoder().encode(payload) {
             do { try data.write(to: url, options: .atomic); wrote = true } catch {}
@@ -404,16 +439,42 @@ public actor CorrectionProvenance {
     /// same clamp (V2-2; may return one delta per affected mapping, e.g. a
     /// switch from "term" to "alt0" moves two).
     ///
-    /// `fromEdit` marks a verdict set by a transcript edit (learn from edits),
-    /// so the pane's Undo knows to retract the edit's count too.
+    /// `fromEdit` marks a verdict set by a transcript edit (learn from edits).
+    /// `receipt` is what the verdict's `VocabularyLearning.apply` did, kept
+    /// under this verdict for the pane's Undo (nil keeps what is there).
     public func setVerdict(transcriptID: UUID, record: Record, verdict: String,
-                           fromEdit: Bool = false) -> [MappingDelta] {
+                           fromEdit: Bool = false,
+                           receipt: VocabularyLearning.Receipt? = nil) -> [MappingDelta] {
         var p = payload(transcriptID: transcriptID)
         p.verdicts[record.key] = verdict
         var closed = (p.editClosedKeys ?? []).filter { $0 != record.key }
         if fromEdit { closed.append(record.key) }
         p.editClosedKeys = closed.isEmpty ? nil : closed
+        setReceipt(&p, receipt, for: record)
         return finalize(&p, transcriptID: transcriptID, record: record)
+    }
+
+    private func setReceipt(_ p: inout Payload, _ receipt: VocabularyLearning.Receipt?, for record: Record) {
+        guard let receipt else { return }
+        var receipts = p.receipts ?? [:]
+        receipts[record.key, default: [:]][verdictKey(p, record)] = receipt
+        p.receipts = receipts
+    }
+
+    private func verdictKey(_ p: Payload, _ record: Record) -> String {
+        p.verdicts[record.key] ?? ""
+    }
+
+    /// Hand `receipt` (a verdict's learning) to `record`, a sibling occurrence
+    /// that still holds `verdict` — an Undo of one occurrence must not reverse
+    /// the pair while another still says so.
+    public func attachReceipt(_ receipt: VocabularyLearning.Receipt, verdict: String,
+                              transcriptID: UUID, record: Record) {
+        var p = payload(transcriptID: transcriptID)
+        var receipts = p.receipts ?? [:]
+        receipts[record.key, default: [:]][verdict] = receipt
+        p.receipts = receipts
+        persist(transcriptID: transcriptID, p)
     }
 
     /// Undo a verdict — clears the pick (row re-surfaces) and reverses this
@@ -423,6 +484,8 @@ public actor CorrectionProvenance {
         p.verdicts.removeValue(forKey: record.key)
         let closed = (p.editClosedKeys ?? []).filter { $0 != record.key }
         p.editClosedKeys = closed.isEmpty ? nil : closed
+        p.receipts?.removeValue(forKey: record.key)
+        if p.receipts?.isEmpty == true { p.receipts = nil }
         return finalize(&p, transcriptID: transcriptID, record: record)
     }
 

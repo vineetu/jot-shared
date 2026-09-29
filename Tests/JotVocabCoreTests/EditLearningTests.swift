@@ -192,106 +192,6 @@ final class EditLearningTests: XCTestCase {
         })
     }
 
-    func testOneHeardEditRaisesStrengthAndAddsPair() async {
-        let s = store()
-        let base = await s.learnedStrength(term: "Claude")
-        XCTAssertEqual(base, CorrectionStore.baseBiasStrength)
-        await s.recordEdit(originalWord: "cloud", term: "Claude", direction: .toward, heardByModel: true)
-        let learned = await s.learnedStrength(term: "claude")
-        XCTAssertEqual(learned, CorrectionStore.learnedBiasStrength)
-        let strengths = await s.learnedStrengths()
-        XCTAssertEqual(strengths, ["claude": 5.0])
-        let pairs = await s.learnedPairs()
-        XCTAssertEqual(pairs, [CorrectionStore.LearnedPair(original: "cloud", term: "Claude")])
-    }
-
-    func testReverseEditDropsStrengthAndPair() async {
-        let s = store()
-        await s.recordEdit(originalWord: "cloud", term: "Claude", direction: .toward, heardByModel: true)
-        await s.recordEdit(originalWord: "cloud", term: "Claude", direction: .away)
-        let strength = await s.learnedStrength(term: "Claude")
-        XCTAssertEqual(strength, CorrectionStore.baseBiasStrength)
-        let pairs = await s.learnedPairs()
-        XCTAssertTrue(pairs.isEmpty)
-        // A later toward edit wins it back (toward 2 > away 1).
-        await s.recordEdit(originalWord: "cloud", term: "Claude", direction: .toward, heardByModel: true)
-        let again = await s.learnedStrength(term: "Claude")
-        XCTAssertEqual(again, CorrectionStore.learnedBiasStrength)
-    }
-
-    func testUnheardEditNeverRaisesStrength() async {
-        let s = store()
-        await s.recordEdit(originalWord: "cloud", term: "Claude", direction: .toward, heardByModel: false)
-        let strength = await s.learnedStrength(term: "Claude")
-        XCTAssertEqual(strength, CorrectionStore.baseBiasStrength)
-        let pairs = await s.learnedPairs()
-        XCTAssertTrue(pairs.isEmpty)
-    }
-
-    func testConfirmVerdictsDoNotFeedStrength() async {
-        let s = store()
-        await s.confirm(originalWord: "jammy", term: "Jamy")
-        await s.confirm(originalWord: "jammy", term: "Jamy")
-        let strength = await s.learnedStrength(term: "Jamy")
-        XCTAssertEqual(strength, CorrectionStore.baseBiasStrength)
-    }
-
-    func testCommonOriginalArmsAfterTwoEditsAndOneAwayDisarms() async {
-        let s = store()
-        await s.recordEdit(originalWord: "cloud", term: "Claude", direction: .toward, heardByModel: true)
-        var entry = await s.snapshot().first
-        XCTAssertEqual(entry?.alwaysReplace, false, "one edit is not enough for a common text rule")
-        await s.recordEdit(originalWord: "cloud", term: "Claude", direction: .toward, heardByModel: true)
-        entry = await s.snapshot().first
-        XCTAssertEqual(entry?.alwaysReplace, true)
-        XCTAssertEqual(entry?.net, 0)
-        await s.recordEdit(originalWord: "cloud", term: "Claude", direction: .away)
-        entry = await s.snapshot().first
-        XCTAssertEqual(entry?.alwaysReplace, false)
-        // One toward edit after the away is not enough; two in a row re-arm.
-        await s.recordEdit(originalWord: "cloud", term: "Claude", direction: .toward)
-        entry = await s.snapshot().first
-        XCTAssertEqual(entry?.alwaysReplace, false)
-        await s.recordEdit(originalWord: "cloud", term: "Claude", direction: .toward)
-        entry = await s.snapshot().first
-        XCTAssertEqual(entry?.alwaysReplace, true)
-    }
-
-    func testEditArmedCommonRuleSurvivesAnOlderRevert() async {
-        let s = store()
-        await s.revert(originalWord: "cloud", term: "Claude")
-        await s.recordEdit(originalWord: "cloud", term: "Claude", direction: .toward)
-        await s.recordEdit(originalWord: "cloud", term: "Claude", direction: .toward)
-        let entry = await s.snapshot().first
-        XCTAssertEqual(entry?.alwaysReplace, true)
-        XCTAssertEqual(entry?.net, 0, "net −1 would block before the grant is read")
-    }
-
-    func testRareOriginalEditsNeverSetTheGrant() async {
-        let s = store()
-        await s.recordEdit(originalWord: "jammy", term: "Jamy", direction: .toward)
-        await s.recordEdit(originalWord: "jammy", term: "Jamy", direction: .toward)
-        let entry = await s.snapshot().first
-        XCTAssertEqual(entry?.alwaysReplace, false, "rare originals arm through the normal confirm")
-    }
-
-    func testRetractAwayRestoresStrength() async {
-        let s = store()
-        await s.recordEdit(originalWord: "cloud", term: "Claude", direction: .toward, heardByModel: true)
-        await s.recordEdit(originalWord: "cloud", term: "Claude", direction: .away)
-        await s.retractEdit(originalWord: "cloud", term: "Claude", direction: .away)
-        let strength = await s.learnedStrength(term: "Claude")
-        XCTAssertEqual(strength, CorrectionStore.learnedBiasStrength)
-    }
-
-    func testRecase() async {
-        let s = store()
-        await s.recordEdit(originalWord: "cloud", term: "claude", direction: .toward, heardByModel: true)
-        await s.recase(term: "Claude")
-        let pairs = await s.learnedPairs()
-        XCTAssertEqual(pairs.first?.term, "Claude")
-    }
-
     // MARK: - Provenance hand-offs
 
     private func proposal(_ original: String, _ term: String, outcome: String, at start: Int)
@@ -356,8 +256,8 @@ final class EditLearningTests: XCTestCase {
         XCTAssertEqual(m.confirmations, 2)
         XCTAssertEqual(m.editsToward, 0)
         XCTAssertEqual(m.editsAway, 0)
-        XCTAssertEqual(m.editStreak, 0)
         XCTAssertFalse(m.editHeard)
+        XCTAssertFalse(m.pairPaused)
     }
 
     func testEditCountersPersistAndReload() async throws {
@@ -366,20 +266,12 @@ final class EditLearningTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let first = CorrectionStore(containerRoot: root)
         await first.recordEdit(originalWord: "cloud", term: "Claude", direction: .toward, heardByModel: true)
+        await first.recordEdit(originalWord: "jammy", term: "Jamy", direction: .away)
         let second = CorrectionStore(containerRoot: root)
-        let strength = await second.learnedStrength(term: "Claude")
-        XCTAssertEqual(strength, CorrectionStore.learnedBiasStrength)
+        let pairs = await second.editLearnedPairs()?.map { "\($0.original)→\($0.term)" }
+        XCTAssertEqual(pairs, ["cloud→Claude"])
+        let paused = await second.pausedPairKeys()
+        XCTAssertEqual(paused, ["jammy|jamy"])
     }
 
-    func testMigrationKeepsEditArmedGrant() async throws {
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("edit-learning-\(UUID().uuidString)", isDirectory: true)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let s = CorrectionStore(containerRoot: root, isCommonOriginal: { $0 == "cloud" })
-        await s.recordEdit(originalWord: "cloud", term: "Claude", direction: .toward)
-        await s.recordEdit(originalWord: "cloud", term: "Claude", direction: .toward)
-        _ = await s.dropCommonOriginalRules()
-        let entry = await s.snapshot().first
-        XCTAssertEqual(entry?.alwaysReplace, true)
-    }
 }

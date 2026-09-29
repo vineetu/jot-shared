@@ -94,12 +94,12 @@
     "expectOutcomes": {}
   },
   {
-    "name": "widened-demotion-blocks",
+    "name": "widened-paused-pair-blocks",
     "transcript": "open clawed code now",
     "replacements": [{"originalWord": "clawed", "replacementWord": "Claude Code", "shouldReplace": true, "replacementScore": 3.5, "originalScore": 0}],
     "allTerms": ["Claude Code"],
     "aliases": {"claude code": ["clawed"]},
-    "overrides": [{"originalWord": "clawed code", "term": "Claude Code", "net": -1, "alwaysReplace": false}],
+    "overrides": [{"originalWord": "clawed code", "term": "Claude Code", "net": -1, "paused": true}],
     "expectText": "open clawed code now",
     "expectOutcomes": {"clawed code": "kept"}
   },
@@ -122,23 +122,33 @@
     "expectProposals": [{"originalWord": "sri ram", "shape": "merge"}]
   },
   {
-    "name": "grant-auto-applies",
+    "name": "learned-common-pair-never-auto-applies",
     "transcript": "the cloud is here",
     "replacements": [{"originalWord": "cloud", "replacementWord": "Claude", "shouldReplace": true, "replacementScore": 3.5, "originalScore": 0}],
     "allTerms": ["Claude"],
-    "overrides": [{"originalWord": "cloud", "term": "Claude", "net": 2, "alwaysReplace": true}],
-    "expectText": "the Claude is here",
-    "expectOutcomes": {"cloud": "applied"},
-    "expectProposals": [{"originalWord": "cloud", "askCandidate": false}]
+    "overrides": [{"originalWord": "cloud", "term": "Claude", "net": 2}],
+    "expectText": "the cloud is here",
+    "expectOutcomes": {"cloud": "kept"},
+    "expectProposals": [{"originalWord": "cloud", "askCandidate": true}]
   },
   {
-    "name": "demotion-beats-grant",
-    "transcript": "the cloud is here",
-    "replacements": [{"originalWord": "cloud", "replacementWord": "Claude", "shouldReplace": true, "replacementScore": 3.5, "originalScore": 0}],
-    "allTerms": ["Claude"],
-    "overrides": [{"originalWord": "cloud", "term": "Claude", "net": -1, "alwaysReplace": true}],
-    "expectText": "the cloud is here",
-    "expectOutcomes": {"cloud": "kept"}
+    "name": "confirmed-rare-pair-needs-evidence",
+    "transcript": "call shriram now",
+    "replacements": [{"originalWord": "shriram", "replacementWord": "Sriram", "shouldReplace": true, "replacementScore": 1, "originalScore": 0}],
+    "tokenTimings": [{"token": " shriram", "confidence": 0.99}],
+    "allTerms": ["Sriram"],
+    "overrides": [{"originalWord": "shriram", "term": "Sriram", "net": 3}],
+    "expectText": "call shriram now",
+    "expectOutcomes": {"shriram": "kept"}
+  },
+  {
+    "name": "paused-pair-blocks",
+    "transcript": "call shriram now",
+    "replacements": [{"originalWord": "shriram", "replacementWord": "Sriram", "shouldReplace": true, "replacementScore": 3.5, "originalScore": 0}],
+    "allTerms": ["Sriram"],
+    "overrides": [{"originalWord": "shriram", "term": "Sriram", "net": 2, "paused": true}],
+    "expectText": "call shriram now",
+    "expectOutcomes": {"shriram": "kept"}
   },
   {
     "name": "measured-jamie-applies",

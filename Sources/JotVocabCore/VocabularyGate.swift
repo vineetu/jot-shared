@@ -13,10 +13,13 @@ import Foundation
 ///      term/alias (edit-distance bound). Kills "Vikram"→"Sriram"-class garbage.
 ///   2. **Confidence ceiling** — never auto-correct a word the TDT transcriber
 ///      was very sure about (the 0.998 protector).
-///   3. **Common-word guard** — never overwrite an everyday word (frequency set)
-///      unless the override is earned.
-///   4. **Earned override** — a shaky word, or a term that wins by a large
+///   3. **Common-word guard** — never silently overwrite an everyday word
+///      (frequency set); it is asked instead.
+///   4. **Earned margin** — a shaky word, or a term that wins by a large
 ///      margin, may still be corrected.
+/// No learned rule ever applies a replacement (owner decision 2026-09-29).
+/// The one learned signal read here is a PAUSED pair — the user's last
+/// explicit word on that exact pair kept the original — which blocks it.
 /// Multi-word phrase *terms* ("Claude Code") are precise and self-gating → allowed
 /// (but only after plausibility).
 ///
@@ -36,7 +39,7 @@ public enum VocabularyGate {
     /// A word above this TDT confidence is never auto-corrected unless the term
     /// wins by a large margin. The 0.998-"name" protector.
     public static let confidenceCeiling: Float = 0.95
-    /// Below this confidence a word is "unsure" enough to be override-eligible.
+    /// Below this confidence a word is "unsure".
     public static let lowConfidence: Float = 0.85
     /// Boosted CTC margin (`replacementScore − originalScore`; includes the
     /// engine's cbw≈3.0) above which a correction counts as "earned" even
@@ -66,7 +69,7 @@ public enum VocabularyGate {
     public struct Proposal: Sendable, Equatable {
         public let originalWord: String     // what TDT wrote (e.g. "Jamie")
         public let term: String             // the vocab term (e.g. "Jamy")
-        public let decision: String         // "APPLY" | "BLOCK" | "OVERRIDE"
+        public let decision: String         // "APPLY" | "BLOCK" ("OVERRIDE" only in old records)
         public let outcome: String          // "applied" (text became `term`) | "kept" (text left `original`)
         public let confidence: Float
         public let margin: Float
@@ -273,7 +276,7 @@ public enum VocabularyGate {
             // duplicate the transcript word(s) right after the span, widen
             // the span to absorb them so an apply can't double a word.
             // Runs BEFORE decide() (diff-review fix): the widened span IS the
-            // proposal's identity, so learned demotions/overrides key on
+            // proposal's identity, so learned pauses key on
             // "clawed code", and a revert actually blocks the next occurrence.
             // (Shape-gated only — widening a proposal that then blocks is
             // harmless; the record just shows the true span.)
@@ -594,14 +597,14 @@ public enum VocabularyGate {
     /// Decision: the SAME `decide(...)` the TDT path uses, fed only what the
     /// detection's `Evidence` actually measured. With no decoder confidence the
     /// 0.998-protector ceiling can't fire (correct: no confidence to protect),
-    /// while plausibility, the common-word brake, learned overrides, and the
+    /// while plausibility, the common-word brake, paused pairs, and the
     /// ask-candidate flags all still run. There is no margin (the spotter score
     /// is on a different scale), so the earned-margin branch can't mis-fire.
     /// The proposal records `confidence`/`margin` as 0 = not measured, plus the
     /// evidence kind and its own score — no stand-in values.
     ///
     /// Reconciliation note (superset merge): this reuses the POST-OVERHAUL iOS
-    /// `decide`/`plausible` (case-insensitive override match, NFC/whitespace
+    /// `decide`/`plausible` (case-insensitive paused-pair match, NFC/whitespace
     /// `CorrectionKey` normalization, no `commonArmThreshold` auto-arm), NOT the
     /// Mac fork's older versions — iOS logic wins on the shared decision path.
     /// The additive multi-candidate alternates / merge-shape / dedup machinery in
@@ -1193,7 +1196,7 @@ public enum VocabularyGate {
     // MARK: - Gate decision
 
     /// Returns (pass, confidence, margin, label, unsure). `label` is APPLY /
-    /// BLOCK / OVERRIDE so the caller can log + persist the verdict. `unsure` is
+    /// BLOCK so the caller can log + persist the verdict. `unsure` is
     /// true when the gate's confidence sits near the decision boundary (plan
     /// §v2-H) — used to prioritise the keyboard's quick-review asks.
     private static func decide(
@@ -1229,42 +1232,19 @@ public enum VocabularyGate {
         // confident word blocked by a big margin is the gate working. plan §v2-H.)
         let unsure = measured.map { $0 >= lowConfidence && $0 < confidenceCeiling } ?? false
 
-        // (0) USER-CONFIRMED OVERRIDE (top of the gate). A confirmed mapping
-        //     fires on the spotter's proposal alone — bypassing the guards — for
-        //     this exact (originalWord → term) pair only. **A common-word original
-        //     is NEVER auto-applied** (plan §v2-B): silently rewriting an everyday
-        //     word everywhere is the headline over-correction bug, and per-
-        //     occurrence review can't undo a paste that already left the device.
-        //     For common originals the gate keeps proposing-and-asking; only the
-        //     UI pre-highlights the learned term. Auto-apply is reserved for
-        //     rare/OOV originals (net ≥ 1) and multi-word terms (self-gating below).
+        // (0) PAUSED PAIR (top of the gate) — the only learned signal the gate
+        //     honours. The user's last explicit word on this exact (originalWord
+        //     → term) pair was "keep the original" (a Keep tap, a review
+        //     "original" pick, an edit back), so the pair is blocked. There is
+        //     no learned APPLY: a confirmed pair still has to pass the evidence
+        //     steps below like any other proposal (owner decision 2026-09-29).
         // Case-insensitive term compare (V2-2 identity fix, diff-reviewed
         // round 2): the engine re-cases replacements from sentence context
-        // ("Claude" vs "claude"), while the store keys terms lowercased — a
-        // case-sensitive compare here silently missed learned overrides and
-        // demotions for differently-capitalized occurrences.
-        if let ov = overrides.first(where: {
-            $0.originalWord == base && $0.term.lowercased() == term.lowercased()
+        // ("Claude" vs "claude"), while the store keys terms lowercased.
+        if overrides.contains(where: {
+            $0.paused && $0.originalWord == base && $0.term.lowercased() == term.lowercased()
         }) {
-            // DEMOTED: the owner reverted this mapping (via the marks/bubble or the
-            // accordion) → stop auto-applying it. Works for common AND rare
-            // originals, so a wrong auto-correction the owner undid stays undone.
-            if ov.net <= -1 {
-                return (false, confidence, margin, "BLOCK", unsure, false)
-            }
-            // V2-4 EXPLICIT GRANT: the owner tapped "Always replace 'X' with
-            // 'Y'" — auto-apply even for a common-word original. §v2-B's
-            // intent holds: the user consented explicitly, on-screen, for
-            // this EXACT pair; one revert revokes the grant (store-side).
-            // An armed override auto-applies silently — never an ask candidate.
-            if ov.alwaysReplace {
-                return (true, confidence, margin, "OVERRIDE", unsure, false)
-            }
-            // CONFIRMED: auto-apply — rare/OOV originals only (common words never
-            // auto-apply without the explicit grant, §v2-B). Armed → not an ask.
-            if !isCommon, ov.net >= 1 {
-                return (true, confidence, margin, "OVERRIDE", unsure, false)
-            }
+            return (false, confidence, margin, "BLOCK", unsure, false)
         }
 
         // (1) PLAUSIBILITY — the heard word must be an acoustically plausible
@@ -1274,11 +1254,10 @@ public enum VocabularyGate {
         //     it can propose "Vikram"→"Sriram" or "Ramanathan"→"Ramaa" — half the
         //     letters different. No acoustic margin makes those right. Spaces are
         //     ignored in the measure so a merged ASR word ("ramanathan") scores
-        //     fairly against a multi-word term ("Ramaa Nathan"). Sits after (0)
-        //     so an owner-confirmed mapping (net ≥ 1) is never second-guessed,
-        //     and BEFORE the multi-word fast-path so it closes that bypass too.
-        //     A block here still emits a reviewable "kept" record — confirming
-        //     it in review teaches the exception (net ≥ 1 → step 0 override).
+        //     fairly against a multi-word term ("Ramaa Nathan"). Sits BEFORE the
+        //     multi-word fast-path so it closes that bypass too. A block here
+        //     still emits a reviewable "kept" record; picking the term there
+        //     adds the heard word as a sounds-like, which this test then honours.
         if !plausible(original: base, term: term, aliases: aliases, ceiling: ceiling) {
             // Implausible garbage ("Vikram"→"Sriram") — never an ask candidate.
             return (false, confidence, margin, "BLOCK", unsure, false)
@@ -1296,19 +1275,15 @@ public enum VocabularyGate {
             return (false, confidence, margin, "BLOCK", unsure, false)
         }
         // (4) Everyday word → NEVER silently rewrite (plan §v2-B). A common word
-        //     is always proposed-and-asked per occurrence; the only paths that
-        //     auto-apply are the rare/OOV override (step 0) and multi-word terms
-        //     (step 2), both above. This is the headline "every name becomes Jamy"
+        //     is always proposed-and-asked per occurrence; multi-word terms
+        //     (step 2, above) are the only self-gating apply. This is the headline "every name becomes Jamy"
         //     protection — a common original is surfaced for review, never swapped.
         if isCommon {
             // §9 Option B (ii): an unarmed common-word near-miss that IS plausible
             // and a single-word term ("did you mean Lisa?"). Surface as an ask
             // candidate (Mac live pill) so the user can pick the term this time;
-            // iOS's `AskPolicy` reads its own signals, not this flag. NOTE this is
-            // the superset-merge reconciliation point: the Mac fork auto-ARMED a
-            // common word at `commonArmThreshold` net here; iOS deliberately
-            // REMOVED that (replaced by the explicit `alwaysReplace` grant at
-            // step 0), and iOS wins — so no auto-arm, just the ask-candidate flag.
+            // iOS's `AskPolicy` reads its own signals, not this flag. No learned
+            // count ever arms a common word here — just the ask-candidate flag.
             return (false, confidence, margin, "BLOCK", unsure, true)
         }
         // (5) OOV-ish word (a likely name/jargon mis-hear) → allow.
@@ -1624,9 +1599,9 @@ public enum VocabularyGate {
 
     private static func normalize(_ s: String) -> String {
         // Diff-review fix: MUST be the same normalization the store keys use
-        // (`CorrectionKey`) — the override lookup compares this output to
+        // (`CorrectionKey`) — the paused-pair lookup compares this output to
         // store-normalized keys, and any divergence (NFC, whitespace runs)
-        // silently misses learned overrides/demotions.
+        // silently misses paused pairs.
         CorrectionKey.normalize(s)
     }
 

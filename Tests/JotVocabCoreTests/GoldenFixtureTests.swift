@@ -66,7 +66,7 @@ final class GoldenFixtureTests: XCTestCase {
     }
     private struct TokenTimingFixture: Decodable { let token: String; let confidence: Float }
     private struct OverrideFixture: Decodable {
-        let originalWord: String; let term: String; let net: Int; let alwaysReplace: Bool
+        let originalWord: String; let term: String; let net: Int; let paused: Bool?
     }
     private struct AlternateFixture: Decodable { let term: String; let find: String }
     private struct ExpectProposalFixture: Decodable {
@@ -103,7 +103,7 @@ final class GoldenFixtureTests: XCTestCase {
             let timings = (c.tokenTimings ?? []).map { TokenTiming(token: $0.token, confidence: $0.confidence) }
             let overrides = (c.overrides ?? []).map {
                 CorrectionStore.OverrideEntry(
-                    originalWord: $0.originalWord, term: $0.term, net: $0.net, alwaysReplace: $0.alwaysReplace)
+                    originalWord: $0.originalWord, term: $0.term, net: $0.net, paused: $0.paused ?? false)
             }
             let result = VocabularyGate.apply(
                 originalTranscript: c.transcript, output: out, tokenTimings: timings,
@@ -143,7 +143,7 @@ final class GoldenFixtureTests: XCTestCase {
         let delta: Int?
     }
     private struct SnapshotExpect: Decodable {
-        let originalWord: String; let term: String; let net: Int; let alwaysReplace: Bool
+        let originalWord: String; let term: String; let net: Int; let paused: Bool?
     }
     private struct StoreCase: Decodable {
         let name: String
@@ -176,7 +176,6 @@ final class GoldenFixtureTests: XCTestCase {
                 case "confirm": await store.confirm(originalWord: ow, term: term)
                 case "revert": await store.revert(originalWord: ow, term: term)
                 case "adjust": await store.adjust(originalWord: ow, term: term, by: op.delta ?? 0)
-                case "grantAlwaysReplace": await store.grantAlwaysReplace(originalWord: ow, term: term)
                 case "suppressBlock": await store.suppressBlock(originalWord: ow, term: term)
                 case "noteBlockedKeep": await store.noteBlockedKeep(originalWord: ow, term: term)
                 case "clearBlockedKeep": await store.clearBlockedKeep(originalWord: ow, term: term)
@@ -191,7 +190,7 @@ final class GoldenFixtureTests: XCTestCase {
                     let m = snap.first { $0.originalWord == CorrectionKey.normalize(e.originalWord) && $0.term == e.term }
                     XCTAssertNotNil(m, "store[\(c.name)] snapshot missing \(e.originalWord)→\(e.term)")
                     XCTAssertEqual(m?.net, e.net, "store[\(c.name)] net")
-                    XCTAssertEqual(m?.alwaysReplace, e.alwaysReplace, "store[\(c.name)] alwaysReplace")
+                    XCTAssertEqual(m?.paused, e.paused ?? false, "store[\(c.name)] paused")
                 }
             }
             if let expect = c.expectKeyboardSuppressed {
@@ -286,7 +285,7 @@ final class GoldenFixtureTests: XCTestCase {
     // MARK: - 5 · AskPolicy.select
 
     private struct AskOverrideFixture: Decodable {
-        let originalWord: String; let term: String; let net: Int; let alwaysReplace: Bool
+        let originalWord: String; let term: String; let net: Int; let paused: Bool?
     }
     private struct AskExpect: Decodable {
         let originalWord: String; let isMergeTeach: Bool; let altTerm: String?; let altFind: String?
@@ -306,7 +305,7 @@ final class GoldenFixtureTests: XCTestCase {
         for c in cases {
             let overrides = c.overrides.map {
                 CorrectionStore.OverrideEntry(
-                    originalWord: $0.originalWord, term: $0.term, net: $0.net, alwaysReplace: $0.alwaysReplace)
+                    originalWord: $0.originalWord, term: $0.term, net: $0.net, paused: $0.paused ?? false)
             }
             let selected = AskPolicy.select(
                 unresolved: c.records, overrides: overrides,
@@ -518,7 +517,7 @@ final class GoldenFixtureTests: XCTestCase {
             }
             let overrides = (c.overrides ?? []).map {
                 CorrectionStore.OverrideEntry(
-                    originalWord: $0.originalWord, term: $0.term, net: $0.net, alwaysReplace: $0.alwaysReplace)
+                    originalWord: $0.originalWord, term: $0.term, net: $0.net, paused: $0.paused ?? false)
             }
             let result = VocabularyGate.applyFromDetections(
                 originalTranscript: c.transcript, detections: dets,

@@ -28,10 +28,10 @@
       {"originalWord": "ddd", "term": "Ddd", "decision": "APPLY", "outcome": "applied", "confidence": 0.85, "margin": 3.5, "unsure": false, "occurrenceIndex": 3, "originalStart": 30, "originalLength": 3, "publishedStart": 30, "publishedLength": 3}
     ],
     "overrides": [
-      {"originalWord": "aaa", "term": "Aaa", "net": 3, "alwaysReplace": false},
-      {"originalWord": "bbb", "term": "Bbb", "net": 2, "alwaysReplace": false},
-      {"originalWord": "ccc", "term": "Ccc", "net": 1, "alwaysReplace": false},
-      {"originalWord": "ddd", "term": "Ddd", "net": 0, "alwaysReplace": false}
+      {"originalWord": "aaa", "term": "Aaa", "net": 3},
+      {"originalWord": "bbb", "term": "Bbb", "net": 2},
+      {"originalWord": "ccc", "term": "Ccc", "net": 1},
+      {"originalWord": "ddd", "term": "Ddd", "net": 0}
     ],
     "keyboardSuppressed": [],
     "mergeAsked": [],
@@ -52,14 +52,14 @@
     "expectSelected": []
   },
   {
-    "name": "always-replace-grant-excluded",
+    "name": "confirmed-pair-is-still-asked",
     "records": [
-      {"originalWord": "cloud", "term": "Claude", "decision": "OVERRIDE", "outcome": "applied", "confidence": 0.85, "margin": 3.5, "unsure": false, "occurrenceIndex": 0, "originalStart": 0, "originalLength": 5, "publishedStart": 0, "publishedLength": 6}
+      {"originalWord": "cloud", "term": "Claude", "decision": "APPLY", "outcome": "applied", "confidence": 0.85, "margin": 3.5, "unsure": false, "occurrenceIndex": 0, "originalStart": 0, "originalLength": 5, "publishedStart": 0, "publishedLength": 6}
     ],
-    "overrides": [{"originalWord": "cloud", "term": "Claude", "net": 2, "alwaysReplace": true}],
+    "overrides": [{"originalWord": "cloud", "term": "Claude", "net": 2}],
     "keyboardSuppressed": [],
     "mergeAsked": [],
-    "expectSelected": []
+    "expectSelected": [{"originalWord": "cloud", "isMergeTeach": false}]
   },
   {
     "name": "merge-teach-one-shot-eligible",

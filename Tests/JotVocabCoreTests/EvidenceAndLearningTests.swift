@@ -225,25 +225,68 @@ final class EvidenceAndLearningTests: XCTestCase {
         })
     }
 
-    func testCommonOriginalNeverGetsAlwaysReplace() async {
+    func testCommonOriginalGetsNoPositivePrior() async {
         let store = guardedStore()
-        let granted = await store.grantAlwaysReplace(originalWord: "name", term: "Jamy")
-        XCTAssertFalse(granted)
         let confirmed = await store.confirm(originalWord: "Name,", term: "Jamy")
         XCTAssertFalse(confirmed)
         let adjusted = await store.adjust(originalWord: "chart", term: "Jot", by: 1)
         XCTAssertFalse(adjusted, "any-word-common: 'chart' is everyday")
-        let multi = await store.grantAlwaysReplace(originalWord: "cloud code", term: "Claude Code")
+        let multi = await store.confirm(originalWord: "cloud code", term: "Claude Code")
         XCTAssertFalse(multi, "ANY common word blocks (R9), not only all-common")
         let snapshot = await store.snapshot()
-        XCTAssertFalse(snapshot.contains { $0.alwaysReplace })
         XCTAssertFalse(snapshot.contains { $0.net > 0 })
 
-        // A rare original still learns and can be granted.
-        let rare = await store.grantAlwaysReplace(originalWord: "shriram", term: "Sriram")
+        // A rare original still gets its ranking prior.
+        let rare = await store.confirm(originalWord: "shriram", term: "Sriram")
         XCTAssertTrue(rare)
         let rareSnapshot = await store.snapshot()
-        XCTAssertTrue(rareSnapshot.contains { $0.originalWord == "shriram" && $0.alwaysReplace })
+        XCTAssertEqual(rareSnapshot.first { $0.originalWord == "shriram" }?.net, 1)
+    }
+
+    // MARK: - No learned auto-replace (owner decision 2026-09-29)
+
+    private func confidentShriram(overrides: [CorrectionStore.OverrideEntry]) -> VocabularyGate.Result {
+        VocabularyGate.apply(
+            originalTranscript: "call shriram now",
+            output: RescoreOutput(text: "call shriram now", replacements: [
+                RescoreProposal(originalWord: "shriram", replacementWord: "Sriram", shouldReplace: true,
+                                replacementScore: 1, originalScore: 0),
+            ], wasModified: true),
+            tokenTimings: [TokenTiming(token: " shriram", confidence: 0.99)],
+            commonWords: BundledCommonWordsProvider.shared, overrides: overrides,
+            commonWordsResource: "common-words-en", allTerms: ["Sriram"])
+    }
+
+    func testConfirmedRarePairIsNotAutoAppliedWithoutEvidence() {
+        let confirmed = [CorrectionStore.OverrideEntry(originalWord: "shriram", term: "Sriram", net: 3)]
+        let result = confidentShriram(overrides: confirmed)
+        XCTAssertEqual(result.text, "call shriram now", "net 3 is a ranking prior, never an apply")
+        XCTAssertFalse(result.proposals.contains { $0.decision == "OVERRIDE" })
+    }
+
+    func testPausedPairIsBlocked() {
+        // Unknown confidence on a rare word: the evidence steps would apply it…
+        let plain = VocabularyGate.apply(
+            originalTranscript: "call shriram now",
+            output: RescoreOutput(text: "call shriram now", replacements: [
+                RescoreProposal(originalWord: "shriram", replacementWord: "Sriram", shouldReplace: true,
+                                replacementScore: 3.5, originalScore: 0),
+            ], wasModified: true),
+            tokenTimings: [], commonWords: BundledCommonWordsProvider.shared,
+            commonWordsResource: "common-words-en", allTerms: ["Sriram"])
+        XCTAssertEqual(plain.text, "call Sriram now")
+        // …but the user's last word on the pair kept the original.
+        let paused = VocabularyGate.apply(
+            originalTranscript: "call shriram now",
+            output: RescoreOutput(text: "call shriram now", replacements: [
+                RescoreProposal(originalWord: "shriram", replacementWord: "sriram", shouldReplace: true,
+                                replacementScore: 3.5, originalScore: 0),
+            ], wasModified: true),
+            tokenTimings: [], commonWords: BundledCommonWordsProvider.shared,
+            overrides: [.init(originalWord: "shriram", term: "Sriram", net: 5, paused: true)],
+            commonWordsResource: "common-words-en", allTerms: ["Sriram"])
+        XCTAssertEqual(paused.text, "call shriram now")
+        XCTAssertEqual(paused.proposals.first?.outcome, "kept")
     }
 
     func testRevertsOfCommonOriginalsAreStillRecorded() async {
@@ -260,21 +303,22 @@ final class EvidenceAndLearningTests: XCTestCase {
         let vocab = root.appendingPathComponent("Vocabulary", isDirectory: true)
         try FileManager.default.createDirectory(at: vocab, withIntermediateDirectories: true)
         // A ledger written before the guard existed: two common-original rules
-        // (one granted), one with a revert history, and one rare rule.
-        let legacy: [String: CorrectionStore.Term] = [
-            "jot": .init(mappings: [
-                .init(originalWord: "chart", term: "Jot", confirmations: 3, alwaysReplace: true),
-                .init(originalWord: "not", term: "Jot", confirmations: 1, reverts: 1),
-            ]),
-            "sriram": .init(mappings: [.init(originalWord: "shriram", term: "Sriram", confirmations: 2)]),
-        ]
-        try JSONEncoder().encode(legacy).write(to: vocab.appendingPathComponent("corrections.json"))
+        // (one with the retired "always replace" grant, which must decode and
+        // be ignored), one with a revert history, and one rare rule.
+        let legacy = #"""
+        {"jot":{"mappings":[
+          {"originalWord":"chart","term":"Jot","confirmations":3,"alwaysReplace":true,"editStreak":2},
+          {"originalWord":"not","term":"Jot","confirmations":1,"reverts":1}],"suppressedBlocks":[]},
+         "sriram":{"mappings":[{"originalWord":"shriram","term":"Sriram","confirmations":2}],"suppressedBlocks":[]}}
+        """#
+        try Data(legacy.utf8).write(to: vocab.appendingPathComponent("corrections.json"))
 
         let store = guardedStore(root: root)
         let before = await store.snapshot()
-        XCTAssertFalse(before.contains { $0.originalWord == "chart" && ($0.alwaysReplace || $0.net > 0) },
-                       "the snapshot never hands the gate a common rule, even before migrating")
-        // The gate therefore never OVERRIDE-applies it.
+        XCTAssertEqual(before.count, 3, "the old grant key decodes")
+        XCTAssertFalse(before.contains { $0.originalWord == "chart" && $0.net > 0 },
+                       "the snapshot never hands a common original a positive prior, even before migrating")
+        // And the gate never applies a learned rule anyway.
         let gated = VocabularyGate.applyFromDetections(
             originalTranscript: "the chart is ready",
             detections: [.init(term: "Jot", aliases: [], evidence: .textual(distance: 0.2),

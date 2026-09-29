@@ -35,11 +35,12 @@ public enum AskPolicy {
         }
     }
 
-    /// Select the ≤`maxAsks` records worth a keyboard confirm, closest-to-automatic
-    /// first. Pure — no persistence, no IPC. Inputs:
+    /// Select the ≤`maxAsks` records worth a keyboard confirm, most-confirmed
+    /// (`prior`) first. Pure — no persistence, no IPC. Inputs:
     ///   - `unresolved`: records the owner has not adjudicated (verdict == nil).
-    ///   - `overrides`: the store snapshot (drives `prior` and the always-replace
-    ///     `granted` exclusion — both derived here, not passed separately).
+    ///   - `overrides`: the store snapshot (drives `prior`, derived here, not
+    ///     passed separately). Nothing learned auto-applies, so nothing is
+    ///     excluded as "already automatic".
     ///   - `keyboardSuppressed`: `CorrectionStore.keyboardSuppressedPairs()`.
     ///   - `mergeAsked`: `CorrectionStore.mergeAskedPairs()`.
     ///   - `isCommonOriginal`: the app's ONE common-original predicate (the
@@ -52,7 +53,7 @@ public enum AskPolicy {
     ///
     /// Ranking (A5): weakest evidence first — the ask exists to catch a wrong
     /// apply, so a string-only (`textual`) change outranks an acoustic one —
-    /// then closest-to-automatic (`prior`) first, then transcript order.
+    /// then most-confirmed (`prior`) first, then transcript order.
     public static func select(
         unresolved: [CorrectionProvenance.Record],
         overrides: [CorrectionStore.OverrideEntry],
@@ -83,24 +84,15 @@ public enum AskPolicy {
             mergeEligibleMemo[r.key] = v
             return v
         }
-        // V2-4: a pair the owner explicitly granted "Always replace" stops
-        // consuming ask budget — it auto-applies (revocable in transcript review).
-        func granted(_ r: CorrectionProvenance.Record) -> Bool {
-            overrides.first {
-                $0.originalWord == CorrectionKey.normalize(r.originalWord)
-                    && $0.term.lowercased() == r.term.lowercased()
-            }?.alwaysReplace == true
-        }
         // Worth asking on the keyboard: an APPLIED correction (the gate changed
-        // the text — most worth a quick confirm) or a mapping part-way to
-        // automatic (prior > 0). ALL other KEPT blocks — including low-confidence
-        // (`unsure`) ones — stay on the transcript only. EXCLUDE suppressed pairs
-        // and always-replace grants. A merge-shaped BLOCKED record is eligible
+        // the text — most worth a quick confirm) or a mapping the owner has
+        // confirmed before (prior > 0). ALL other KEPT blocks — including
+        // low-confidence (`unsure`) ones — stay on the transcript only. EXCLUDE
+        // suppressed pairs. A merge-shaped BLOCKED record is eligible
         // ONLY through the one-shot teach lane — never via prior>0 (which would
         // resurrect a spent phrase and defeat both once-ever and post-paste-only).
         func worthAsking(_ r: CorrectionProvenance.Record) -> Bool {
             if keyboardSuppressed.contains(pairKey(r)) { return false }
-            if granted(r) { return false }
             if r.outcome != "applied", isCommonOriginal(r.originalWord) {
                 return false
             }

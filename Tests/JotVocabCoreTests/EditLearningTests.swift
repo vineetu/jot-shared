@@ -209,29 +209,56 @@ final class EditLearningTests: XCTestCase {
             .appendingPathComponent("edit-learning-\(UUID().uuidString)", isDirectory: true)
     }
 
-    func testLiveVerdictBeforeCommitLandsOnTheRecord() async {
+    func testOpenRecordsMatchesThePairAndSkipsAnswered() async {
         let root = provenanceRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         let p = CorrectionProvenance(containerRoot: root)
         let id = UUID()
-        await p.record([proposal("cloud", "Claude", outcome: "kept", at: 4)], gatedText: "ask cloud now")
-        await p.noteLiveVerdict(originalWord: "cloud", term: "Claude", verdict: "original")
+        await p.record([proposal("cloud", "Claude", outcome: "kept", at: 4),
+                        proposal("cloud", "Claude", outcome: "kept", at: 14),
+                        proposal("jamie", "Jamy", outcome: "kept", at: 20)],
+                       gatedText: "ask cloud and cloud jamie")
         await p.commit(transcriptID: id)
-        let payload = await p.payload(transcriptID: id)
-        XCTAssertEqual(payload.verdicts[payload.records[0].key], "original")
+        let records = await p.payload(transcriptID: id).records
+        _ = await p.setVerdict(transcriptID: id, record: records[0], verdict: "term")
+        let open = await p.payload(transcriptID: id).openRecords(originalWord: "Cloud", term: "claude")
+        XCTAssertEqual(open.map(\.originalStart), [14], "answered occurrence and other pairs are excluded")
     }
 
-    func testLiveVerdictAfterCommitLandsOnTheRecord() async {
+    func testReplaceRecordsReversesStandingVerdictsAndDropsOldRecords() async {
         let root = provenanceRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         let p = CorrectionProvenance(containerRoot: root)
         let id = UUID()
         await p.record([proposal("cloud", "Claude", outcome: "applied", at: 4)], gatedText: "ask Claude now")
         await p.commit(transcriptID: id)
-        await p.noteLiveVerdict(originalWord: "cloud", term: "Claude", verdict: "original")
+        let old = await p.payload(transcriptID: id).records[0]
+        let taught = await p.setVerdict(transcriptID: id, record: old, verdict: "original")
+        XCTAssertEqual(taught.map(\.delta), [-1])
+
+        // The re-run gates different text: one fresh record, no verdicts.
+        await p.record([proposal("jamie", "Jamy", outcome: "kept", at: 0)], gatedText: "jamie said hi")
+        let reversed = await p.replaceRecords(transcriptID: id)
+        XCTAssertEqual(reversed, [CorrectionProvenance.MappingDelta(originalWord: "cloud", term: "Claude", delta: 1)])
         let payload = await p.payload(transcriptID: id)
-        XCTAssertEqual(payload.verdicts[payload.records[0].key], "original")
-        XCTAssertEqual(payload.contributions.values.first, -1, "ledger matches the pill's revert")
+        XCTAssertEqual(payload.records.map(\.originalWord), ["jamie"])
+        XCTAssertTrue(payload.verdicts.isEmpty)
+        XCTAssertTrue(payload.contributions.isEmpty)
+        XCTAssertEqual(payload.anchoredText, "jamie said hi")
+    }
+
+    func testReplaceRecordsWithNoProposalsRemovesThePayload() async {
+        let root = provenanceRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let p = CorrectionProvenance(containerRoot: root)
+        let id = UUID()
+        await p.record([proposal("cloud", "Claude", outcome: "kept", at: 4)], gatedText: "ask cloud now")
+        await p.commit(transcriptID: id)
+        await p.clearPending()
+        let reversed = await p.replaceRecords(transcriptID: id)
+        XCTAssertTrue(reversed.isEmpty, "no verdicts, nothing to reverse")
+        let payload = await p.payload(transcriptID: id)
+        XCTAssertTrue(payload.records.isEmpty, "old records never reattach to the new text")
     }
 
     func testEditClosedVerdictIsMarkedAndClearedOnUndo() async {

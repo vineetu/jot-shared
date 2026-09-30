@@ -157,6 +157,18 @@ public actor CorrectionProvenance {
         public func receipts(for record: Record) -> [String: VocabularyLearning.Receipt] {
             receipts?[record.key] ?? [:]
         }
+
+        /// The still-unanswered records of the `originalWord → term` pair, in
+        /// document order — what a surface answering that pair (the live ask,
+        /// a transcript edit) marks.
+        public func openRecords(originalWord: String, term: String) -> [Record] {
+            let ow = CorrectionKey.normalize(originalWord)
+            return records.filter {
+                verdicts[$0.key] == nil
+                    && CorrectionKey.normalize($0.originalWord) == ow
+                    && $0.term.lowercased() == term.lowercased()
+            }
+        }
     }
 
     /// What a verdict change does to a mapping's global learning net. The caller
@@ -183,13 +195,6 @@ public actor CorrectionProvenance {
     /// text BEFORE it's saved, and the first `reconciledPayload` absorbs that
     /// drift exactly by diffing from this baseline.
     private var pendingAnchorText: String = ""
-    /// Live-pill verdicts given before this dictation's records were committed
-    /// (`noteLiveVerdict`), applied at `commit`.
-    private var pendingLiveVerdicts: [(originalWord: String, term: String, verdict: String,
-                                       receipt: VocabularyLearning.Receipt?)] = []
-    /// The transcript the last `commit` wrote, for a live verdict that lands
-    /// after the commit. Cleared with the pending slot.
-    private var lastCommittedID: UUID?
 
     /// - Parameters:
     ///   - containerRoot: directory the `Vocabulary/provenance/` subtree lives
@@ -226,39 +231,6 @@ public actor CorrectionProvenance {
     public func clearPending() {
         pending = []
         pendingAnchorText = ""
-        pendingLiveVerdicts = []
-        lastCommittedID = nil
-    }
-
-    /// A verdict the live pill already acted on (its own store write done), so
-    /// the review pane shows that occurrence as answered and can't count it
-    /// again. Lands on the first still-open record of the pair — held until
-    /// `commit` if the records aren't saved yet. The store deltas `setVerdict`
-    /// would return are NOT reapplied (the pill already wrote them); only the
-    /// contribution ledger is brought in line, so an Undo reverses exactly them.
-    public func noteLiveVerdict(originalWord: String, term: String, verdict: String,
-                                receipt: VocabularyLearning.Receipt? = nil) {
-        let ow = CorrectionKey.normalize(originalWord)
-        if pending.contains(where: {
-            CorrectionKey.normalize($0.originalWord) == ow && $0.term.lowercased() == term.lowercased()
-        }) {
-            pendingLiveVerdicts.append((originalWord, term, verdict, receipt))
-            return
-        }
-        guard let id = lastCommittedID else { return }
-        applyLiveVerdict(transcriptID: id, originalWord: originalWord, term: term, verdict: verdict,
-                         receipt: receipt)
-    }
-
-    private func applyLiveVerdict(transcriptID: UUID, originalWord: String, term: String, verdict: String,
-                                  receipt: VocabularyLearning.Receipt?) {
-        let p = payload(transcriptID: transcriptID)
-        let ow = CorrectionKey.normalize(originalWord)
-        guard let record = p.records.first(where: {
-            p.verdicts[$0.key] == nil
-                && CorrectionKey.normalize($0.originalWord) == ow && $0.term.lowercased() == term.lowercased()
-        }) else { return }
-        _ = setVerdict(transcriptID: transcriptID, record: record, verdict: verdict, receipt: receipt)
     }
 
     /// Persist the pending records under the saved transcript id (fresh verdicts).
@@ -266,22 +238,17 @@ public actor CorrectionProvenance {
     /// — the one string the records' `publishedStart` offsets are actually valid
     /// for. (NOT the published/saved text: post-gate transforms already shifted
     /// that; seeding it would bake the drift in as "valid".)
+    ///
+    /// A surface that answers this transcript's records (the live ask) waits
+    /// for this commit and then marks them by id with `setVerdict` — verdicts
+    /// travel with the transcript id, never with "the last commit".
     public func commit(transcriptID: UUID) {
         let records = pending
         let anchorText = pendingAnchorText
-        let liveVerdicts = pendingLiveVerdicts
         pending = []
         pendingAnchorText = ""
-        pendingLiveVerdicts = []
         guard !records.isEmpty, let url = fileURL(transcriptID) else {
             return
-        }
-        lastCommittedID = transcriptID
-        defer {
-            for v in liveVerdicts {
-                applyLiveVerdict(transcriptID: transcriptID, originalWord: v.originalWord,
-                                 term: v.term, verdict: v.verdict, receipt: v.receipt)
-            }
         }
         // Commit is once-per-fresh-id, but be defensive: if a payload already
         // exists for this id (a re-commit / retry), PRESERVE the owner's verdicts
@@ -299,6 +266,37 @@ public actor CorrectionProvenance {
         diagnostics.record(
             category: .vocabularyGate, message: "provenance committed",
             metadata: ["records": "\(records.count)", "wrote": "\(wrote)", "id": transcriptID.uuidString])
+    }
+
+    /// Re-transcription of a saved transcript: its old review records described
+    /// text that no longer exists, so they must not reattach to the new text.
+    /// Every standing verdict is cleared the way an Undo clears it (its mapping
+    /// contribution reversed through the same ±1 clamp), then the pending
+    /// records (this re-run's gate proposals) replace the old ones with fresh
+    /// verdicts. No pending records ⇒ the payload is removed. Returns the
+    /// deltas the caller applies to `CorrectionStore` to take back what the old
+    /// verdicts taught. One actor turn, so no other transcription can take the
+    /// pending slot in between.
+    public func replaceRecords(transcriptID: UUID) -> [MappingDelta] {
+        let records = pending
+        let anchorText = pendingAnchorText
+        pending = []
+        pendingAnchorText = ""
+        var old = payload(transcriptID: transcriptID)
+        var deltas: [MappingDelta] = []
+        for record in old.records where old.verdicts[record.key] != nil {
+            old.verdicts.removeValue(forKey: record.key)
+            deltas += reconcileContributions(&old, record: record)
+        }
+        guard !records.isEmpty else {
+            discard(transcriptID: transcriptID)
+            return deltas
+        }
+        persist(transcriptID: transcriptID, Payload(records: records, anchoredText: anchorText))
+        diagnostics.record(
+            category: .vocabularyGate, message: "provenance replaced",
+            metadata: ["records": "\(records.count)", "reversed": "\(deltas.count)", "id": transcriptID.uuidString])
+        return deltas
     }
 
     // MARK: - Pane side (read + verdict)
@@ -492,6 +490,14 @@ public actor CorrectionProvenance {
     /// Recompute this transcript's contribution to `record`'s mapping from its
     /// CURRENT verdicts, store it, and return the delta vs the stored value.
     private func finalize(_ p: inout Payload, transcriptID: UUID, record: Record) -> [MappingDelta] {
+        let deltas = reconcileContributions(&p, record: record)
+        persist(transcriptID: transcriptID, p)
+        return deltas
+    }
+
+    /// `finalize` without the write: bring `p.contributions` for every mapping
+    /// `record` can affect in line with the current verdicts.
+    private func reconcileContributions(_ p: inout Payload, record: Record) -> [MappingDelta] {
         // V2-2 selected-mapping ledger: one verdict can move EITHER the base
         // mapping (term/original picks) OR an alternate mapping ("alt0" picks
         // in the 3-option ask). Reconcile every mapping this record can
@@ -524,7 +530,6 @@ public actor CorrectionProvenance {
                 deltas.append(MappingDelta(originalWord: record.originalWord, term: t.term, delta: delta))
             }
         }
-        persist(transcriptID: transcriptID, p)
         return deltas
     }
 

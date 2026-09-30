@@ -109,6 +109,21 @@ public enum NumberNormalizer {
                 continue
             }
 
+            // "a dollar fifty." → "$1.50" (the article reads as one dollar;
+            // same phrase-final cents rule as "one dollar fifty.").
+            if tok.kind == .word, tok.core.lowercased() == "a", !tok.hasTrailingPunct,
+               let unit = nextWord(after: i, tokens: tokens),
+               unit.token.core.lowercased() == "dollar",
+               let cents = centsShorthand(afterUnitAt: unit.index, tokens: tokens) {
+                let text = "$1.\(String(format: "%02d", cents.value))"
+                out.append(Token(
+                    kind: .word, raw: text, core: text, leading: "",
+                    trailing: tokens[cents.endExclusive - 1].trailing
+                ))
+                i = cents.endExclusive
+                continue
+            }
+
             // Only words (not whitespace/punctuation) can open a
             // spelled-cardinal run. Ordinals stop the walker
             // immediately so we never fold them into a cardinal run.
@@ -137,7 +152,22 @@ public enum NumberNormalizer {
                     case .twoThousand:
                         fire = ctx
                     case .pairedHalves(let lowHyphenated, let lowBareOnes):
+                        // A two-digit low half (teen, tens, or tens+ones —
+                        // never a bare 1-9) in the recent-year band also
+                        // fires on shape alone: engines often write the
+                        // year unhyphenated ("twenty twenty five", "nineteen
+                        // eighty four") with no context word before it, and
+                        // the owner's real dictations came out "20 25",
+                        // "20 26 July", "19 84". The band keeps "the twenty
+                        // eighty rule" (2080) and "fifteen twenty" as spoken.
+                        // Not inside a run of numbers: counting "eighteen
+                        // nineteen twenty" must not become "18 1920" (found
+                        // replaying the owner's 24,933 saved sentences).
+                        let prevIsNumber = prevWordLower.map {
+                            $0.allSatisfy(\.isNumber) || cardinalWords[$0] != nil
+                        } ?? false
                         fire = lowHyphenated || (ctx && !lowBareOnes)
+                            || (!lowBareOnes && !prevIsNumber && recentYearBand.contains(yr.value))
                     }
                     if fire {
                         let trailing = tokens[yr.endExclusive - 1].trailing
@@ -417,6 +447,10 @@ public enum NumberNormalizer {
     /// Year-context preceding words (lowercased) — when one of these
     /// precedes a "twenty NN" / "nineteen NN" / "two thousand NN"
     /// sequence we apply the year rule.
+    /// Years a century+two-digit pair may form WITHOUT a context word or a
+    /// hyphen (see the year gate in `normalize`): 1910–1999 and 2010–2039.
+    private static let recentYearBand = Set(1910...1999).union(2010...2039)
+
     private static let yearContextWords: Set<String> = [
         "in", "since", "back", "year", "from", "until", "before", "after",
         "of", "to", "by",
@@ -1135,6 +1169,27 @@ public enum NumberNormalizer {
             sequence: sequence
         )
 
+        // === Rule 0: Spoken money shorthand ===
+        // "one fifty dollars" → $150, "twelve fifty dollars" → $1,250,
+        // "three twenty-five bucks" → $325: a ones/teens word read as the
+        // hundreds, then a 10–99 number, then the currency word. Without
+        // this the cardinal grammar stops after "one" (only a scale may
+        // follow a ones word) and emits "one $50". Requires the explicit
+        // currency word — a bare "one fifty" stays as spoken (it can mean
+        // $1.50 or a time).
+        if sequence.count == 1, value >= 1, value <= 19,
+           !tokens[endExclusive - 1].hasTrailingPunct,
+           let low = nextCardinal(after: endExclusive - 1, tokens: tokens),
+           low.value >= 10, low.value <= 99,
+           let lowFirst = low.sequence.first, (cardinalWords[lowFirst] ?? 0) >= 10,
+           !tokens[low.endExclusive - 1].hasTrailingPunct,
+           let unit = nextWord(after: low.endExclusive - 1, tokens: tokens),
+           ["dollars", "bucks"].contains(
+            unit.token.core.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ".,!?;:"))
+           ) {
+            return Rewrite(text: "$\(formatThousands(value * 100 + low.value))", consumedUpTo: unit.index + 1)
+        }
+
         // === Rule 1: Money ===
         if value >= 1, let unit = nextWord(after: endExclusive - 1, tokens: tokens) {
             let unitTrimmed = unit.token.core.lowercased()
@@ -1154,6 +1209,17 @@ public enum NumberNormalizer {
                     return Rewrite(
                         text: "$\(formatThousands(value)).\(String(format: "%02d", cents.value))",
                         consumedUpTo: centsUnit.index + 1
+                    )
+                }
+                // "<n> dollars <10–99>" at the END of a phrase ("one dollar
+                // fifty.", "five dollars twenty") → $n.cc. Only when the
+                // cents number closes the phrase, so "five dollars twenty
+                // times" is never read as cents.
+                if let cents = centsShorthand(afterUnitAt: unit.index, tokens: tokens) {
+                    dropArticleIfPresent(at: articlePrefixIdx, in: &outSoFar)
+                    return Rewrite(
+                        text: "$\(formatThousands(value)).\(String(format: "%02d", cents.value))",
+                        consumedUpTo: cents.endExclusive
                     )
                 }
                 dropArticleIfPresent(at: articlePrefixIdx, in: &outSoFar)
@@ -1440,6 +1506,24 @@ public enum NumberNormalizer {
         guard j < tokens.count, tokens[j].kind == .word else { return nil }
         guard let parsed = parseCardinalSequence(tokens: tokens, start: j) else { return nil }
         return (parsed.sequence, parsed.value, j + parsed.consumed)
+    }
+
+    /// The cents of "<amount> dollar(s) <10–99>" when that number closes the
+    /// phrase: its last word carries punctuation, or nothing but whitespace
+    /// follows. `unitIndex` is the "dollar(s)" token, which must not itself
+    /// end the phrase.
+    private static func centsShorthand(
+        afterUnitAt unitIndex: Int,
+        tokens: [Token]
+    ) -> (value: Int, endExclusive: Int)? {
+        guard !tokens[unitIndex].hasTrailingPunct,
+              let cents = nextCardinal(after: unitIndex, tokens: tokens),
+              cents.value >= 10, cents.value <= 99,
+              let first = cents.sequence.first, (cardinalWords[first] ?? 0) >= 10
+        else { return nil }
+        let closesPhrase = tokens[cents.endExclusive - 1].hasTrailingPunct
+            || tokens[cents.endExclusive...].allSatisfy { $0.kind == .whitespace }
+        return closesPhrase ? (cents.value, cents.endExclusive) : nil
     }
 
     // MARK: - Decimal parser

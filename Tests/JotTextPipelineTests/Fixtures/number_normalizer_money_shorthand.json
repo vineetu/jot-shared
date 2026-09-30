@@ -1,0 +1,13 @@
+[
+  {"name": "ones_hundreds_shorthand_dollars", "input": "It costs one fifty dollars.", "expected": "It costs $150."},
+  {"name": "teens_hundreds_shorthand_dollars", "input": "The rent went up to twelve fifty dollars a month.", "expected": "The rent went up to $1,250 a month."},
+  {"name": "shorthand_hyphenated_low_half_bucks", "input": "I paid three twenty-five bucks for it", "expected": "I paid $325 for it"},
+  {"name": "shorthand_without_currency_not_money", "input": "Meet me at one fifty near the gate.", "expected": "Meet me at 1 50 near the gate."},
+  {"name": "shorthand_needs_two_digit_low_half", "input": "one five dollars", "expected": "one $5"},
+  {"name": "full_form_unchanged", "input": "It costs one hundred fifty dollars.", "expected": "It costs $150."},
+  {"name": "a_dollar_fifty_phrase_final", "input": "Coffee was a dollar fifty.", "expected": "Coffee was $1.50."},
+  {"name": "one_dollar_fifty_phrase_final", "input": "It's one dollar fifty", "expected": "It's $1.50"},
+  {"name": "dollars_then_count_not_cents", "input": "I bet five dollars twenty times", "expected": "I bet $5 20 times"},
+  {"name": "dollars_and_cents_still_works", "input": "one dollar and fifty cents", "expected": "$1.50"},
+  {"name": "a_dollar_alone", "input": "It's only a dollar.", "expected": "It's only a dollar."}
+]

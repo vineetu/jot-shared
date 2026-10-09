@@ -8,9 +8,9 @@ import Foundation
 /// never split a multi-word spelled cardinal (e.g. "twenty uh five")
 /// before we walk it.
 ///
-/// Deterministic rules — converts spelled numbers in transcripts to
-/// digits when the context calls for digits, leaves idioms / ordinals /
-/// bare "one" alone, and bails out on
+/// Deterministic, AP-style-ish rules — converts spelled numbers in
+/// transcripts to digits when the context calls for digits, leaves
+/// idioms / ordinals / single-digit cardinals alone, and bails out on
 /// anything that looks like a dictated phone number. Any number-word
 /// sequence that contains the scale word `million`, `billion`, or
 /// `trillion` is left as words (top-priority pass-through, overrides
@@ -1235,63 +1235,8 @@ public enum NumberNormalizer {
             return nil
         }
 
-        // === Rule 6a: bare small-cardinal guards ===
-        //
-        // A single 2-9 cardinal only became convertible when Rule 6's
-        // floor dropped from 10 to 2. The old floor was implicitly
-        // protecting these adjacency idioms, so they now need explicit
-        // guards. Each corresponds to a golden fixture.
-        if value >= 2, value <= 9, sequence.count == 1, !containsOh {
-            // (a) "two billion", "three trillion stars" — a large-scale
-            //     word follows, so the whole phrase stays words (the
-            //     documented top-priority pass-through).
-            if let next = nextWord(after: endExclusive - 1, tokens: tokens),
-               isLargeScaleToken(next.token.core) {
-                return nil
-            }
-            // (b) "point five" — a bare leading "point" is not a decimal
-            //     (a real decimal is consumed by the integer's own rule).
-            // (c) "nineteen oh five" — a digit run after "oh" stays spoken.
-            if let prev = prevWordLower, prev == "point" || prev == "oh" {
-                return nil
-            }
-            // (d) "twenty four seven" (24/7) — a bare cardinal immediately
-            //     after an already-emitted digit run is idiomatic, not a
-            //     new count.
-            if let last = previousWord(in: outSoFar),
-               !last.isEmpty,
-               last.allSatisfy({ $0.isNumber || $0 == "," }) {
-                return nil
-            }
-            // (e) "two by two" — cardinal by cardinal, in either position.
-            let isCardinalish: (String) -> Bool = {
-                cardinalWords[$0.lowercased()] != nil || isSplittableCardinalWord($0)
-            }
-            if prevWordLower == "by",
-               wordBeforePrevious(in: outSoFar).map(isCardinalish) ?? false {
-                return nil
-            }
-            if let by = nextWord(after: endExclusive - 1, tokens: tokens),
-               by.token.core.lowercased() == "by",
-               let after = nextWord(after: by.index, tokens: tokens),
-               isCardinalish(after.token.core) {
-                return nil
-            }
-        }
-
-        // === Rule 6: Cardinals ≥ 2 ===
-        //
-        // Threshold was 10 (AP style: spell out one-nine). Dictation is
-        // not prose - transcripts get pasted into chat, tickets and code,
-        // where "3 clickable zones" is what the user wants to read back.
-        //
-        // "one" is deliberately excluded (see Rule 7): measured over the
-        // 2,711-recording corpus, dropping the floor to 1 as well rewrote
-        // 366 extra transcripts and introduced 603 pronoun-shaped digits
-        // ("the current 1 does not do it", "In the first 1 there would
-        // be", "Wait for the Nemo 1"). "one" is a pronoun/article far
-        // more often than it is a count, so it stays a word.
-        if value >= 2 {
+        // === Rule 6: Cardinals ≥ 10 ===
+        if value >= 10 {
             if containsOh { return nil }
             // Drop a leading "a" article when the cardinal is emitted
             // as a digit. Covers "a thousand and twenty things" →
@@ -1304,10 +1249,7 @@ public enum NumberNormalizer {
             return Rewrite(text: formatThousands(value), consumedUpTo: endExclusive)
         }
 
-        // === Rule 7: bare "one" stays a word ===
-        // Only value == 1 reaches here now. Contexts where "one" SHOULD
-        // become a digit (money, percent, year, time, address, decimals)
-        // are all handled by the earlier rules, which run before this.
+        // === Rule 7: Cardinals 1–9 stay as words ===
         return nil
     }
 

@@ -1,0 +1,11 @@
+[
+  {"name": "year_2025_unhyphenated_no_context", "input": "Don't look at twenty twenty five ancient stuff, look at twenty twenty six July.", "expected": "Don't look at 2025 ancient stuff, look at 2026 July."},
+  {"name": "year_2026_before_noun", "input": "build something which is twenty twenty six UX", "expected": "build something which is 2026 UX"},
+  {"name": "year_question", "input": "Do we have any twenty twenty five dates?", "expected": "Do we have any 2025 dates?"},
+  {"name": "year_twenty_twenty", "input": "It was a hard year, twenty twenty was.", "expected": "It was a hard year, 2020 was."},
+  {"name": "year_1984_no_context", "input": "It was nineteen eighty four", "expected": "It was 1984"},
+  {"name": "eighty_twenty_rule_not_a_year", "input": "It is the twenty eighty rule", "expected": "It is the 20 80 rule"},
+  {"name": "bare_ones_low_half_not_a_year", "input": "room twenty one", "expected": "room 21"},
+  {"name": "context_form_unchanged", "input": "We are in twenty twenty six", "expected": "We are in 2026"},
+  {"name": "counting_run_not_a_year", "input": "Fourteen fifteen sixteen seventeen eighteen nineteen twenty good?", "expected": "14 15 16 17 18 19 20 good?"}
+]

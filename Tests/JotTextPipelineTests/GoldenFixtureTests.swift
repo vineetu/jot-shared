@@ -98,6 +98,32 @@ final class GoldenFixtureTests: XCTestCase {
         }
     }
 
+    /// Spoken money shorthand ("one fifty dollars" → $150) and phrase-final
+    /// cents ("a dollar fifty." → $1.50) — owner report 2026-09-27.
+    func testNumberNormalizerMoneyShorthandGolden() throws {
+        let cases = try loadFixture("number_normalizer_money_shorthand", as: [StringCase].self)
+        XCTAssertFalse(cases.isEmpty)
+        for c in cases {
+            XCTAssertEqual(
+                NumberNormalizer.normalize(c.input), c.expected,
+                "number_normalizer_money_shorthand[\(c.name)] input=\(c.input.debugDescription)"
+            )
+        }
+    }
+
+    /// Unhyphenated years with no context word ("look at twenty twenty five")
+    /// in the 1910–1999 / 2010–2039 band — owner report 2026-09-27.
+    func testNumberNormalizerUnhyphenatedYearsGolden() throws {
+        let cases = try loadFixture("number_normalizer_years_unhyphenated", as: [StringCase].self)
+        XCTAssertFalse(cases.isEmpty)
+        for c in cases {
+            XCTAssertEqual(
+                NumberNormalizer.normalize(c.input), c.expected,
+                "number_normalizer_years_unhyphenated[\(c.name)] input=\(c.input.debugDescription)"
+            )
+        }
+    }
+
     // MARK: - FillerWordCleaner
 
     func testFillerWordCleanerGolden() throws {

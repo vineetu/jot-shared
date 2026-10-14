@@ -166,8 +166,17 @@ public enum NumberNormalizer {
                         let prevIsNumber = prevWordLower.map {
                             $0.allSatisfy(\.isNumber) || cardinalWords[$0] != nil
                         } ?? false
+                        // The shape-alone reading yields to the money
+                        // shorthand when a currency word follows: "nineteen
+                        // fifty dollars" is $1,950, not "1950 dollars". A
+                        // context word or hyphen still means a year ("in
+                        // nineteen ninety-eight dollars were scarce").
+                        let followedByCurrency = nextWord(after: yr.endExclusive - 1, tokens: tokens)
+                            .map { currencyWords.contains($0.token.core.lowercased()
+                                .trimmingCharacters(in: CharacterSet(charactersIn: ".,!?;:"))) } ?? false
                         fire = lowHyphenated || (ctx && !lowBareOnes)
-                            || (!lowBareOnes && !prevIsNumber && recentYearBand.contains(yr.value))
+                            || (!lowBareOnes && !prevIsNumber && !followedByCurrency
+                                && recentYearBand.contains(yr.value))
                     }
                     if fire {
                         let trailing = tokens[yr.endExclusive - 1].trailing
@@ -450,6 +459,9 @@ public enum NumberNormalizer {
     /// Years a century+two-digit pair may form WITHOUT a context word or a
     /// hyphen (see the year gate in `normalize`): 1910–1999 and 2010–2039.
     private static let recentYearBand = Set(1910...1999).union(2010...2039)
+
+    /// The units the money rules read (Rule 0 / Rule 1).
+    private static let currencyWords: Set<String> = ["dollars", "dollar", "bucks", "buck"]
 
     private static let yearContextWords: Set<String> = [
         "in", "since", "back", "year", "from", "until", "before", "after",
